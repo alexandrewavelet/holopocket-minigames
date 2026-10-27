@@ -66,11 +66,12 @@
   padding-right: 10px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .mini-card .art {
-  flex: 1; margin: 4px 0; border-radius: 6px; min-height: 0;
+  flex: 1; margin: 4px 0; border-radius: 6px; min-height: 14px;
   background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.45), transparent 55%), rgba(0,0,0,.18);
   border: 1px solid rgba(255,255,255,.35);
-  min-height: 14px;
+  display: grid; place-items: center; overflow: hidden;
 }
+.mini-card .sprite { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0,0,0,.5)); animation: popIn .4s ease-out both; }
 .badges, .tbadges { display: flex; flex-wrap: wrap; gap: 3px; }
 .tbadge {
   font-style: normal; font-size: 9px; font-weight: 800; line-height: 1;
@@ -125,6 +126,9 @@
 .tray-card .plus { font-family: var(--font-display); font-size: 22px; line-height: 1; color: var(--accent); }
 .tray-card .tnum { font-size: 11px; }
 .tray-card .tname { font-weight: 800; font-size: 13px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 480px) { .tray-card.has-sprite { padding-right: 42px; } }
+@media (max-width: 479px) { .tray-card .tsprite { display: none; } }
+.tray-card .tsprite { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; image-rendering: pixelated; opacity: .95; pointer-events: none; }
 .tray-card .tlineage { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tray-card .deg {
   position: absolute; top: -7px; right: -6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
@@ -142,6 +146,13 @@
 
 /* ---------- editor sheet ---------- */
 .editor { max-height: 86vh; }
+.picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--border); }
+.picked .tbadges { gap: 5px; }
+.picked .tbadge { font-size: 11px; padding: 4px 8px; }
+.tbadge.line { background: var(--purple); color: #fff; }
+.manual { margin-top: 10px; width: 100%; border: 1px dashed var(--border); background: transparent; color: var(--muted); border-radius: 12px; padding: 9px 10px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; }
+.manual:hover { color: var(--text); border-color: var(--accent); }
+.details { animation: bubbleIn .2s ease-out; }
 .editor .sheet-title .sub { font-size: 12px; color: var(--accent); margin-left: 6px; }
 .suggest { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .suggest li {

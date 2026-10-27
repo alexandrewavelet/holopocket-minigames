@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0f1020">
   <title>Les Voisins Solver</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='6' y='6' width='88' height='88' rx='14' fill='%232f7a5a' stroke='%231a1a1a' stroke-width='6'/%3E%3Cg fill='%23fff7dc'%3E%3Crect x='20' y='20' width='16' height='20' rx='3'/%3E%3Crect x='42' y='20' width='16' height='20' rx='3'/%3E%3Crect x='64' y='20' width='16' height='20' rx='3'/%3E%3Crect x='20' y='46' width='16' height='20' rx='3'/%3E%3Crect x='42' y='46' width='16' height='20' rx='3'/%3E%3Crect x='64' y='46' width='16' height='20' rx='3'/%3E%3C/g%3E%3C/svg%3E">
@@ -94,7 +94,7 @@
           <div v-else class="mini-card" :style="cardStyle(v.card)">
             <span class="cnum">{{ v.cell + 1 }}</span>
             <span class="name">{{ v.label }}</span>
-            <span class="art"></span>
+            <span class="art"><img v-if="spriteUrl(v.card)" class="sprite" :src="spriteUrl(v.card)" alt="" loading="lazy" decoding="async" @error="$event.target.remove()"></span>
             <span class="badges">
               <i v-for="t in v.card.types" :key="t" class="tbadge" :style="typeStyle(t)">{{ t }}</i>
               <i class="tbadge gen">Gén. {{ v.card.gen }}</i>
@@ -115,10 +115,11 @@
         <div class="tray-grid">
           <button
             v-for="(c, i) in state.cards" :key="'tray' + i" type="button"
-            class="tray-card" :class="{ empty: !isComplete(c), active: editing === i, hot: hotCards.has(i), missing: analysis.status === 'incomplete' && analysis.missing.includes(i) && filledCount > 0 && !isComplete(c) }"
+            class="tray-card" :class="{ empty: !isComplete(c), 'has-sprite': !!spriteUrl(c), active: editing === i, hot: hotCards.has(i), missing: analysis.status === 'incomplete' && analysis.missing.includes(i) && filledCount > 0 && !isComplete(c) }"
             @click="openEditor(i)"
           >
             <template v-if="isComplete(c) || c.name">
+              <img v-if="spriteUrl(c)" class="tsprite" :src="spriteUrl(c)" alt="" loading="lazy" decoding="async" @error="$event.target.remove()">
               <span class="tname">{{ cardLabel(c, i) }}</span>
               <span class="tbadges">
                 <i v-for="t in c.types" :key="t" class="tbadge" :style="typeStyle(t)">{{ t }}</i>
@@ -174,7 +175,7 @@
       </div>
 
       <div class="field-label">Nom du Pokémon</div>
-      <input ref="nameInput" class="text-input" type="text" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="ex. Lippoutou, Qwilfish de Hisui…" :value="current.name" @input="onNameInput" @keydown.enter.prevent="onNameEnter">
+      <input ref="nameInput" class="text-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="next" placeholder="ex. Lippoutou, Qwilfish de Hisui…" :value="current.name" @input="onNameInput" @keydown.enter.prevent="onNameEnter">
       <ul class="suggest" v-if="suggestions.length">
         <li v-for="m in suggestions" :key="m.n + (m.f || '')" @mousedown.prevent @click="pick(m)">
           <span class="sname">{{ m.n }}<small v-if="m.f"> {{ m.f }}</small></span>
@@ -182,19 +183,28 @@
         </li>
       </ul>
 
-      <div class="field-label">Types <small>(1 ou 2)</small></div>
-      <div class="types">
-        <button v-for="t in TYPES" :key="t" type="button" class="tchip" :class="{ on: current.types.includes(t) }" :disabled="!current.types.includes(t) && current.types.length >= 2" :style="typeStyle(t)" @click="toggleType(t)">{{ t }}</button>
+      <!-- what the Pokédex filled in: one line, adjustable; the full fields only when needed -->
+      <div class="picked" v-if="isComplete(current) && !detailsOpen">
+        <span class="tbadges"><i v-for="t in current.types" :key="t" class="tbadge" :style="typeStyle(t)">{{ t }}</i><i class="tbadge gen">Gén. {{ current.gen }}</i><i class="tbadge line" v-if="current.lineage">lignée {{ current.lineage }}</i></span>
+        <button type="button" class="btn ghost sm" @click="detailsOpen = true">Ajuster</button>
       </div>
+      <button type="button" class="manual" v-else-if="!detailsOpen" @click="detailsOpen = true">Pas dans le Pokédex ? Saisir types, génération et lignée à la main</button>
 
-      <div class="field-label">Génération</div>
-      <div class="gens">
-        <button v-for="g in 9" :key="g" type="button" class="gen-btn" :class="{ on: current.gen === g }" @click="setGen(g)">{{ g }}</button>
+      <div class="details" v-if="detailsOpen">
+        <div class="field-label">Types <small>(1 ou 2)</small></div>
+        <div class="types">
+          <button v-for="t in TYPES" :key="t" type="button" class="tchip" :class="{ on: current.types.includes(t) }" :disabled="!current.types.includes(t) && current.types.length >= 2" :style="typeStyle(t)" @click="toggleType(t)">{{ t }}</button>
+        </div>
+
+        <div class="field-label">Génération</div>
+        <div class="gens">
+          <button v-for="g in 9" :key="g" type="button" class="gen-btn" :class="{ on: current.gen === g }" @click="setGen(g)">{{ g }}</button>
+        </div>
+
+        <div class="field-label">Lignée <small>(nom de la famille d'évolution)</small></div>
+        <input class="text-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" list="lineages" placeholder="ex. Lippouti" :value="current.lineage" @input="current.lineage = $event.target.value">
+        <datalist id="lineages"><option v-for="l in lineageSuggestions" :key="l" :value="l"></option></datalist>
       </div>
-
-      <div class="field-label">Lignée <small>(nom de la famille d'évolution)</small></div>
-      <input class="text-input" type="text" autocomplete="off" spellcheck="false" list="lineages" placeholder="ex. Lippouti" :value="current.lineage" @input="current.lineage = $event.target.value">
-      <datalist id="lineages"><option v-for="l in lineageSuggestions" :key="l" :value="l"></option></datalist>
 
       <div class="editor-actions">
         <button type="button" class="btn ghost sm" @click="clearCard(editing)" v-if="current.name || current.types.length || current.gen || current.lineage">Vider</button>

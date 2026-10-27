@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f1020">
   <title>HoloPocket Minigames — Solveurs</title>
-  <meta name="description" content="Solveurs pour les mini-jeux HoloPocket : Voltorbe Flip, Le Coffre, Les Voisins. Le coup parfait, expliqué pas à pas.">
+  <meta name="description" content="Solveurs pour les mini-jeux HoloPocket : Voltorbe Flip, Le Coffre, Les Voisins, Cartodle, Connexions. Recopie ta partie, lis le coup à jouer.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='14' y='6' width='72' height='88' rx='10' fill='%23ffd60a' stroke='%231a1a1a' stroke-width='6'/%3E%3Cpath d='M14 30 L86 70' stroke='%23fff' stroke-width='14' opacity='.5'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,110 +15,60 @@
 </head>
 <body class="home">
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="voltorb" viewBox="0 0 100 100">
-    <circle cx="50" cy="50" r="46" fill="#fff" stroke="#1a1a1a" stroke-width="5"/>
-    <path d="M4 50 A46 46 0 0 1 96 50 Z" fill="#e8372c"/>
-    <line x1="4" y1="50" x2="96" y2="50" stroke="#1a1a1a" stroke-width="5"/>
-    <path d="M26 27 L44 37" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round"/>
-    <path d="M74 27 L56 37" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="37" cy="43" rx="7.5" ry="5.5" fill="#fff" stroke="#1a1a1a" stroke-width="3"/>
-    <ellipse cx="63" cy="43" rx="7.5" ry="5.5" fill="#fff" stroke="#1a1a1a" stroke-width="3"/>
-    <circle cx="38.5" cy="44" r="2.6" fill="#1a1a1a"/><circle cx="61.5" cy="44" r="2.6" fill="#1a1a1a"/>
-    <ellipse cx="30" cy="22" rx="9" ry="4" fill="#fff" opacity=".35" transform="rotate(-30 30 22)"/>
-  </symbol>
-  <symbol id="chest" viewBox="0 0 100 100">
-    <rect x="8" y="42" width="84" height="48" rx="8" fill="#8a5a2b" stroke="#1a1a1a" stroke-width="5"/>
-    <rect x="8" y="42" width="84" height="10" fill="#c9962b" stroke="#1a1a1a" stroke-width="5"/>
-    <rect x="42" y="50" width="16" height="18" rx="3" fill="#ffd60a" stroke="#1a1a1a" stroke-width="4"/>
-    <path d="M8 46 a42 30 0 0 1 84 0 v4 H8 Z" fill="#c9962b" stroke="#1a1a1a" stroke-width="5"/>
-    <path d="M20 44 a30 20 0 0 1 60 0" stroke="rgba(255,255,255,.35)" stroke-width="4" fill="none"/>
-    <g class="gems">
-      <circle cx="28" cy="20" r="7" fill="#3f8ee8" stroke="#1a1a1a" stroke-width="3"/>
-      <circle cx="50" cy="12" r="7" fill="#f7d02c" stroke="#1a1a1a" stroke-width="3"/>
-      <circle cx="72" cy="20" r="7" fill="#4caf50" stroke="#1a1a1a" stroke-width="3"/>
-    </g>
-  </symbol>
-  <symbol id="binder" viewBox="0 0 100 100">
-    <rect x="8" y="6" width="86" height="88" rx="14" fill="#2f7a5a" stroke="#1a1a1a" stroke-width="5"/>
-    <g stroke="#1a1a1a" stroke-width="2.5">
-      <rect x="24" y="18" width="16" height="20" rx="3" fill="#96D9D6"/><rect x="46" y="18" width="16" height="20" rx="3" fill="#F7D02C"/><rect x="68" y="18" width="16" height="20" rx="3" fill="#7AC74C"/>
-      <rect x="24" y="44" width="16" height="20" rx="3" fill="#A98FF3"/><rect x="46" y="44" width="16" height="20" rx="3" fill="#705746"/><rect x="68" y="44" width="16" height="20" rx="3" fill="#A33EA1"/>
-      <rect x="24" y="70" width="16" height="18" rx="3" fill="#F95587"/><rect x="46" y="70" width="16" height="18" rx="3" fill="#6390F0"/><rect x="68" y="70" width="16" height="18" rx="3" fill="#C22E28"/>
-    </g>
-    <g fill="#c9d1d9" stroke="#1a1a1a" stroke-width="3"><circle cx="12" cy="30" r="6"/><circle cx="12" cy="70" r="6"/></g>
-  </symbol>
-  <symbol id="bolt" viewBox="0 0 24 24"><path d="M13 2 L4 14 h7 l-1 8 l9 -12 h-7 z" fill="currentColor" stroke="#1a1a1a" stroke-width="1.2" stroke-linejoin="round"/></symbol>
-  <symbol id="coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="#1a1a1a" stroke-width="1.2"/><circle cx="12" cy="12" r="6" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/></symbol>
-  <symbol id="card-ico" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2.5" fill="currentColor" stroke="#1a1a1a" stroke-width="1.2"/><rect x="7.5" y="4.5" width="9" height="7" rx="1" fill="#1a1a1a" opacity=".35"/></symbol>
-</svg>
-
-<div class="bg" aria-hidden="true">
-  <div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div>
-  <div class="particles" id="particles"></div>
-</div>
-
 <main class="home-wrap">
-  <header class="home-hero">
-    <div class="eyebrow"><span class="pill">Outils non officiels</span><span class="pill alt">3 solveurs</span></div>
-    <h1 class="holo-title"><span class="word">HoloPocket</span> <span class="word accent">Minigames</span></h1>
-    <p class="lead">Recopie la grille, le coffre ou la page du jour. Le solveur calcule le coup parfait — et t'explique pourquoi, <b>pas à pas</b>.</p>
-    <div class="hero-cta">
-      <a class="btn primary big" href="#jeux">Choisir un mini-jeu ↓</a>
-      <a class="btn ghost big" href="https://github.com/alexandrewavelet/holopocket-minigames" rel="noopener">Code source</a>
-    </div>
+  <header class="top">
+    <span class="wordmark"><i aria-hidden="true"></i>HoloPocket · solveurs</span>
+    <a href="https://github.com/alexandrewavelet/holopocket-minigames" rel="noopener">Code source</a>
   </header>
 
-  <section class="games" id="jeux" aria-label="Mini-jeux">
-    <a class="game vf" href="voltorbe-flip/" data-tilt style="--i: 0">
-      <span class="holo" aria-hidden="true"></span>
-      <span class="art"><svg class="big"><use href="#voltorb"/></svg><svg class="deco d1"><use href="#bolt"/></svg><svg class="deco d2"><use href="#bolt"/></svg></span>
-      <span class="body">
-        <span class="kicker">Grille 5×5 · probabilités</span>
-        <span class="title">Voltorbe Flip</span>
-        <span class="desc">Les cartes sûres, le risque de Voltorbe en % sur chaque carte, et le meilleur pari quand il faut tenter.</span>
-        <span class="feats"><i>⚡ Cartes sûres</i><i>🎲 Risque en %</i><i>🔎 Pas à pas</i></span>
-      </span>
-      <span class="cta">Résoudre <b>→</b></span>
-    </a>
-
-    <a class="game cf" href="coffre/" data-tilt style="--i: 1">
-      <span class="holo" aria-hidden="true"></span>
-      <span class="art"><svg class="big"><use href="#chest"/></svg><svg class="deco d1"><use href="#coin"/></svg><svg class="deco d2"><use href="#coin"/></svg><svg class="deco d3"><use href="#coin"/></svg></span>
-      <span class="body">
-        <span class="kicker">Mastermind · 4 énergies</span>
-        <span class="title">Le Coffre</span>
-        <span class="desc">L'essai qui élimine le plus de codes à chaque tour, un carnet de ce qui est certain, et le code final avant le 8ᵉ essai.</span>
-        <span class="feats"><i>✨ Essai conseillé</i><i>📒 Carnet</i><i>🔎 Pas à pas</i></span>
-      </span>
-      <span class="cta">Résoudre <b>→</b></span>
-    </a>
-
-    <a class="game vs" href="voisins/" data-tilt style="--i: 2">
-      <span class="holo" aria-hidden="true"></span>
-      <span class="art"><svg class="big"><use href="#binder"/></svg><svg class="deco d1"><use href="#card-ico"/></svg><svg class="deco d2"><use href="#card-ico"/></svg></span>
-      <span class="body">
-        <span class="kicker">Page 3×3 · 9 coups</span>
-        <span class="title">Les Voisins</span>
-        <span class="desc">Tape les noms, le Pokédex remplit types, génération et lignée : la page se range toute seule, point commun écrit entre chaque carte.</span>
-        <span class="feats"><i>📖 Pokédex intégré</i><i>🃏 Ordre de pose</i><i>🔎 Pas à pas</i></span>
-      </span>
-      <span class="cta">Résoudre <b>→</b></span>
-    </a>
+  <section class="intro">
+    <h1>Les mini-jeux HoloPocket, <em>résolus</em>.</h1>
+    <p>Recopie ta partie, le solveur te donne le coup à jouer et t'explique pourquoi. Tout tourne dans ton navigateur, <b>même hors-ligne</b>.</p>
   </section>
 
-  <section class="how" aria-label="Comment ça marche">
-    <div class="step"><span class="n">1</span><b>Recopie</b><span>la grille, le coffre ou les cartes du jeu, en quelques touches.</span></div>
-    <div class="step"><span class="n">2</span><b>Lis le verdict</b><span>cartes sûres, essai conseillé, disposition valide.</span></div>
-    <div class="step"><span class="n">3</span><b>Comprends</b><span>le mode pas à pas déroule le raisonnement, règle par règle.</span></div>
+  <section class="tiles" aria-label="Mini-jeux">
+    <a class="tile vf wide" href="voltorbe-flip/" style="--i: 0">
+      <span class="art" aria-hidden="true"><img src="assets/voltorb.webp" alt="" width="420" height="420" decoding="async"></span>
+      <span class="name">Voltorbe Flip</span>
+      <span class="what">Les cartes sûres, le risque de Voltorbe sur chacune des autres, et le meilleur pari quand il faut tenter.</span>
+      <span class="go">Résoudre <b>→</b></span>
+    </a>
+
+    <a class="tile cf" href="coffre/" style="--i: 1">
+      <span class="art" aria-hidden="true"><img src="assets/gimmighoul.webp" alt="" width="420" height="420" decoding="async" loading="lazy"></span>
+      <span class="name">Le Coffre</span>
+      <span class="what">L'essai qui élimine le plus de codes, essai après essai, jusqu'au code du coffre.</span>
+      <span class="go">Résoudre <b>→</b></span>
+    </a>
+
+    <a class="tile vs" href="voisins/" style="--i: 2">
+      <span class="art" aria-hidden="true"><img src="assets/eevee.webp" alt="" width="420" height="420" decoding="async" loading="lazy"></span>
+      <span class="name">Les Voisins</span>
+      <span class="what">La disposition des neuf cartes, avec le point commun écrit entre chaque voisine.</span>
+      <span class="go">Résoudre <b>→</b></span>
+    </a>
+
+    <a class="tile ct" href="cartodle/" style="--i: 3">
+      <span class="art" aria-hidden="true"><img src="assets/unown.webp" alt="" width="420" height="420" decoding="async" loading="lazy"></span>
+      <span class="name">Cartodle</span>
+      <span class="what">La carte mystère cernée indice après indice, et la carte à proposer ensuite.</span>
+      <span class="go">Résoudre <b>→</b></span>
+    </a>
+
+    <a class="tile cx" href="connexions/" style="--i: 4">
+      <span class="art" aria-hidden="true"><img src="assets/magneton.webp" alt="" width="420" height="420" decoding="async" loading="lazy"></span>
+      <span class="name">Connexions</span>
+      <span class="what">Les quatre groupes de quatre Pokémon, et ce qui les relie.</span>
+      <span class="go">Résoudre <b>→</b></span>
+    </a>
   </section>
 
   <footer class="home-foot">
-    Projet perso, non affilié à HoloPocket ni à The Pokémon Company · fonctionne hors-ligne, rien n'est envoyé nulle part ·
-    <a href="https://github.com/alexandrewavelet/holopocket-minigames" rel="noopener">GitHub</a>
+    Projet perso, sans lien avec HoloPocket ni The Pokémon Company. Illustrations © Pokémon / Nintendo / Creatures / GAME FREAK.
+    Données <a href="https://pokeapi.co" rel="noopener">PokéAPI</a> et <a href="https://tcgdex.dev" rel="noopener">TCGdex</a>.
+    Rien n'est envoyé nulle part : tes parties restent dans ton navigateur.
   </footer>
 </main>
 
-<script src="home.js"></script>
 </body>
 </html>

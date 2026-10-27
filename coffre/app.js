@@ -48,7 +48,8 @@
         mode: saved && saved.mode === 'step' ? 'step' : 'instant',
       });
       const draft = reactive(emptyDraft());
-      const draftSlot = ref(null);
+      const cursor = ref(null); // slot the next energy goes to (tap a slot to pick it)
+      const draftFromReco = ref(false); // the draft still is the solver's suggestion (untouched by the player)
       const editingIndex = ref(null);
       const undo = ref(null);
       let undoTimer = null;
@@ -80,26 +81,21 @@
       const shownRecommendation = computed(() => (atResult.value && recommendation.value && status.value !== 'won' ? recommendation.value : null));
       const shownCandidates = computed(() => (atResult.value && analysis.value.count > 1 && analysis.value.count <= 12 ? analysis.value.candidates : []));
 
+      // the chest shows the history; the attempt being typed lives in the entry panel
       const rows = computed(() =>
         Array.from({ length: MAX_TRIES }, (_, i) => {
           const a = state.attempts[i];
           const hot = !!highlightStep.value && highlightStep.value.attempt === i;
-          if (editingIndex.value === i) {
-            return { index: i, guess: draft.guess, exact: draft.exact, misplaced: draft.misplaced, draft: true, cls: { draft: true, editing: true } };
-          }
           if (a && i < visibleAttempts.value) {
             const bad = status.value === 'invalid' && analysis.value.invalidAt === i;
             return {
-              index: i, guess: a.guess, exact: a.exact, misplaced: a.misplaced, draft: false,
+              index: i, guess: a.guess, exact: a.exact, misplaced: a.misplaced,
               cls: { past: true, editing: editingIndex.value === i, bad, hot, 'won-row': a.exact === 4 },
               onClick: () => editAttempt(i),
             };
           }
-          if (a) return { index: i, guess: a.guess, exact: a.exact, misplaced: a.misplaced, draft: false, cls: { hidden: true } };
-          if (i === state.attempts.length && canEnter.value && editingIndex.value == null && !stepMode.value) {
-            return { index: i, guess: draft.guess, exact: draft.exact, misplaced: draft.misplaced, draft: true, cls: { draft: true } };
-          }
-          return { index: i, guess: [null, null, null, null], exact: 0, misplaced: 0, draft: false, cls: { future: true } };
+          if (a) return { index: i, guess: a.guess, exact: a.exact, misplaced: a.misplaced, cls: { hidden: true } };
+          return { index: i, guess: [null, null, null, null], exact: 0, misplaced: 0, cls: { future: true } };
         }),
       );
 
@@ -124,41 +120,59 @@
       const iconOf = (id) => (BY_ID[id] ? BY_ID[id].icon : 'e-star');
 
       // ---------------- entry ----------------
+      // The draft is pre-filled with the recommended guess: most of the time the player only types the chest's answer.
+      function prefill(guess) {
+        draft.guess = guess.slice();
+        draft.exact = 0;
+        draft.misplaced = 0;
+        cursor.value = null;
+        draftFromReco.value = true;
+      }
       function addEnergy(id) {
         if (!canEnter.value) return;
-        let i = draftSlot.value != null && !draft.guess[draftSlot.value] ? draftSlot.value : draft.guess.findIndex((g) => !g);
-        if (i < 0) i = draftSlot.value != null ? draftSlot.value : 3;
-        draft.guess[i] = id;
-        draftSlot.value = null;
-        nextTick(() => UI.confettiAt(document.querySelectorAll('.row.draft .orb')[i], { particleCount: 8, colors: [BY_ID[id].color, '#ffffff'], spread: 40 }));
+        let target = cursor.value != null ? cursor.value : draft.guess.findIndex((g) => !g);
+        if (target < 0) target = 0; // full and nothing picked: type over from the first slot
+        draft.guess[target] = id;
+        draftFromReco.value = false;
+        const nextEmpty = draft.guess.findIndex((g, i) => !g && i > target);
+        const anyEmpty = draft.guess.findIndex((g) => !g);
+        cursor.value = nextEmpty >= 0 ? nextEmpty : anyEmpty >= 0 ? anyEmpty : target < 3 ? target + 1 : null;
+        nextTick(() => UI.confettiAt(document.querySelectorAll('.draft-orbs .orb')[target], { particleCount: 8, colors: [BY_ID[id].color, '#ffffff'], spread: 40 }));
       }
       function tapSlot(i) {
-        if (draft.guess[i]) draft.guess[i] = null;
-        draftSlot.value = i;
+        cursor.value = cursor.value === i ? null : i;
       }
       function removeLast() {
-        draftSlot.value = null;
-        for (let i = 3; i >= 0; i--) if (draft.guess[i]) { draft.guess[i] = null; return; }
+        draftFromReco.value = false;
+        for (let i = 3; i >= 0; i--) if (draft.guess[i]) { draft.guess[i] = null; cursor.value = i; return; }
       }
       function clearDraft() {
         Object.assign(draft, emptyDraft());
-        draftSlot.value = null;
+        cursor.value = 0;
+        draftFromReco.value = false;
       }
-      function bump(key, d) {
-        const v = draft[key] + d;
-        if (v < 0) return;
+      function setFeedback(key, v) {
+        if (v < 0 || v > 4) return;
         if (key === 'exact' && v + draft.misplaced > 4) return;
         if (key === 'misplaced' && v + draft.exact > 4) return;
         draft[key] = v;
       }
+      function bump(key, d) {
+        setFeedback(key, draft[key] + d);
+      }
+      const scrollTo = (selector, block) => nextTick(() => {
+        const el = document.querySelector(selector);
+        if (el && UI.isMobile()) el.scrollIntoView({ block, behavior: UI.reducedMotion() ? 'auto' : 'smooth' });
+      });
       function submit() {
         if (!draftComplete.value) return;
         const attempt = { guess: draft.guess.slice(), exact: draft.exact, misplaced: draft.misplaced };
         if (editingIndex.value != null) state.attempts.splice(editingIndex.value, 1, attempt);
         else state.attempts.push(attempt);
         editingIndex.value = null;
-        clearDraft();
-        if (UI.isMobile()) nextTick(() => { const el = document.querySelector('.advice'); if (el) el.scrollIntoView({ block: 'nearest', behavior: UI.reducedMotion() ? 'auto' : 'smooth' }); });
+        Object.assign(draft, emptyDraft()); // the recommendation watcher pre-fills the next attempt
+        cursor.value = null;
+        scrollTo('.advice', 'start');
       }
       function editAttempt(i) {
         if (stepMode.value) { stepper.onSelect(steps.value[i + 1], i + 1); return; }
@@ -167,26 +181,26 @@
         draft.guess = a.guess.slice();
         draft.exact = a.exact;
         draft.misplaced = a.misplaced;
-        nextTick(() => { const el = document.querySelector('.entry'); if (el && UI.isMobile()) el.scrollIntoView({ block: 'nearest', behavior: UI.reducedMotion() ? 'auto' : 'smooth' }); });
+        cursor.value = null;
+        scrollTo('.entry', 'start');
       }
       function cancelEdit() {
         editingIndex.value = null;
-        clearDraft();
+        if (recommendation.value) prefill(recommendation.value.guess);
+        else clearDraft();
       }
       function deleteAttempt(i) {
         state.attempts.splice(i, 1);
         editingIndex.value = null;
-        clearDraft();
+        Object.assign(draft, emptyDraft());
+        cursor.value = null;
       }
       function useRecommendation() {
         if (!recommendation.value) return;
         if (stepMode.value) setMode('instant');
         editingIndex.value = null;
-        draft.guess = recommendation.value.guess.slice();
-        draft.exact = 0;
-        draft.misplaced = 0;
-        draftSlot.value = null;
-        nextTick(() => { const el = document.querySelector('.feedback'); if (el && UI.isMobile()) el.scrollIntoView({ block: 'center', behavior: UI.reducedMotion() ? 'auto' : 'smooth' }); });
+        prefill(recommendation.value.guess);
+        scrollTo('.feedback', 'center');
       }
       function toggleEnergy(id) {
         if (usedEnergies.value.has(id)) return;
@@ -194,7 +208,7 @@
         if (i >= 0) {
           if (state.enabled.length <= 2) return;
           state.enabled.splice(i, 1);
-          draft.guess = draft.guess.map((g) => (g === id ? null : g));
+          if (draft.guess.includes(id)) Object.assign(draft, emptyDraft());
         } else state.enabled.push(id);
         state.enabled.sort((a, b) => ENERGIES.findIndex((e) => e.id === a) - ENERGIES.findIndex((e) => e.id === b));
       }
@@ -231,19 +245,24 @@
         state.enabled = undo.value.enabled;
         state.attempts = undo.value.attempts;
         undo.value = null;
+        editingIndex.value = null;
+        Object.assign(draft, emptyDraft());
+        cursor.value = null;
       }
       function resetAll() {
         if (state.attempts.length) snapshotForUndo();
         state.attempts = [];
         editingIndex.value = null;
-        clearDraft();
+        Object.assign(draft, emptyDraft());
+        cursor.value = null;
       }
       function loadExample() {
         if (state.attempts.length) snapshotForUndo();
         state.enabled = DEFAULT_SET.slice();
         state.attempts = EXAMPLE.map(([guess, exact, misplaced]) => ({ guess: guess.slice(), exact, misplaced }));
         editingIndex.value = null;
-        clearDraft();
+        Object.assign(draft, emptyDraft());
+        cursor.value = null;
       }
 
       // ---------------- effects ----------------
@@ -251,6 +270,10 @@
         if (s === 'won' && old != null && old !== 'won') UI.celebrate(['#ffd60a', '#f5b301', '#ffffff', '#c9962b']);
       });
       watch(() => [state.attempts, state.enabled], () => stepper.reset(), { deep: true });
+      // an empty or untouched draft takes the recommended guess as soon as there is one (new attempt, undo, example…)
+      watch(recommendation, (r) => {
+        if (r && editingIndex.value == null && canEnter.value && (!draft.guess.some(Boolean) || draftFromReco.value)) prefill(r.guess);
+      }, { immediate: true });
       watch(state, () => UI.saveJSON(STORAGE_KEY, { enabled: state.enabled, attempts: state.attempts, mode: state.mode }), { deep: true });
 
       onMounted(() => {
@@ -265,14 +288,14 @@
       });
       onUnmounted(() => window.removeEventListener('keydown', onKey));
 
-      window.coffre = { state, draft, addEnergy, submit, useRecommendation, setMode, loadExample, resetAll, editAttempt, stepNext: stepper.next, stepLast: stepper.last, analysis };
+      window.coffre = { state, draft, addEnergy, setFeedback, submit, useRecommendation, setMode, loadExample, resetAll, editAttempt, clearDraft, stepNext: stepper.next, stepLast: stepper.last, analysis };
 
       return {
-        ENERGIES, state, draft, draftSlot, editingIndex, undo, sparks, stepper,
+        ENERGIES, state, draft, cursor, editingIndex, undo, sparks, stepper,
         analysis, status, steps, stepIndex: idx, stepMode, atResult, enabledEnergies, usedEnergies, recommendation, canEnter, draftComplete, draftIsRecommendation, finalCode,
         shownCount, notebook, shownRecommendation, shownCandidates, rows, advice, stepIcons,
         energyStyle, iconOf,
-        addEnergy, tapSlot, clearDraft, bump, submit, editAttempt, cancelEdit, deleteAttempt, useRecommendation, toggleEnergy,
+        addEnergy, tapSlot, clearDraft, setFeedback, bump, submit, editAttempt, cancelEdit, deleteAttempt, useRecommendation, toggleEnergy,
         setMode, resetAll, loadExample, restoreUndo,
       };
     },

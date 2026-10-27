@@ -1,11 +1,13 @@
 {
   "name": "holopocket-minigames",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Solveurs pour les mini-jeux HoloPocket (Voltorbe Flip, Le Coffre, Les Voisins) — pages statiques, sans build",
+  "description": "Solveurs pour les mini-jeux HoloPocket (Voltorbe Flip, Le Coffre, Les Voisins, Cartodle, Connexions) — pages statiques, sans build",
   "scripts": {
     "test": "node --test test/",
     "build:pokedex": "node scripts/build-pokedex.js",
-    "start": "python3 -m http.server 8080"
+    "start": "python3 -m http.server 8080",
+    "build:cards": "node scripts/build-cards.js",
+    "build:data": "node scripts/build-cards.js && node scripts/build-pokedex.js"
   }
 }

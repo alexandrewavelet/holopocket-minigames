@@ -19,9 +19,15 @@
 .mascot.chest.ajar { animation: bob 1.2s ease-in-out infinite; }
 .mascot.chest.open { animation: spin .8s cubic-bezier(.3,.7,.3,1) 1; filter: drop-shadow(0 0 14px var(--accent-glow)); }
 
-/* energies set */
-.energy-set { margin-bottom: 10px; }
-.energy-set .field-label { margin-top: 0; }
+/* ---------- settings (energies of the game) ---------- */
+.settings { margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.settings > summary { cursor: pointer; padding: 12px 14px; font-weight: 800; list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.settings > summary::-webkit-details-marker { display: none; }
+.settings > summary::before { content: '▸'; color: var(--accent); transition: transform .2s; }
+.settings[open] > summary::before { transform: rotate(90deg); }
+.settings .count { margin-left: auto; background: var(--surface-2); border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--muted); }
+.settings-body { padding: 0 14px 14px; }
+.settings-body .muted { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .energy-chip svg { width: 16px; height: 16px; color: var(--ec); }
 .energy-chip.on { background: var(--ec); color: var(--eink); border-color: var(--ec); }
@@ -30,6 +36,7 @@
 .energy-chip:disabled:not(.on) { opacity: .35; }
 
 .board-head .tries { margin-left: auto; color: var(--muted); font-weight: 700; }
+.board-empty { margin: 8px 4px 4px; font-size: 13px; color: rgba(255,247,220,.6); text-align: center; }
 
 /* ---------- board ---------- */
 .board {
@@ -59,8 +66,7 @@
 }
 .row.past { cursor: pointer; }
 .row.past:hover { background: rgba(255,255,255,.06); }
-.row.draft { background: rgba(245,179,1,.12); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-soft); }
-.row.editing { background: rgba(63,142,232,.14); border-color: var(--blue); }
+.row.editing { background: rgba(63,142,232,.14); border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .row.bad { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
 .row.hot { box-shadow: 0 0 0 2px var(--yellow), 0 0 16px rgba(255,214,10,.7); transform: scale(1.02); }
 .row.future { opacity: .45; }
@@ -88,7 +94,6 @@
 .orb.sm { --size: 22px; border-width: 1.5px; box-shadow: none; }
 .orb.xs { --size: 18px; border-width: 1.5px; box-shadow: none; }
 .orb.lg { --size: 48px; animation: popIn .45s ease-out; }
-.row.draft .orb:not(.empty) { cursor: pointer; }
 @media (max-width: 400px) { .orb { --size: 32px; } .orbs { gap: 4px; } }
 
 .fb { display: flex; gap: 6px; }
@@ -104,12 +109,22 @@
 
 /* ---------- entry panel ---------- */
 .entry {
-  margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px;
+  background: var(--surface); border: 2px solid var(--accent); border-radius: 16px; padding: 12px;
+  box-shadow: 0 0 24px var(--accent-soft);
   animation: bubbleIn .3s ease-out;
 }
-.entry.editing { border-color: var(--blue); }
-.entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.entry-head b { font-family: var(--font-display); font-weight: 400; font-size: 18px; flex: 1; }
+.entry.editing { border-color: var(--blue); box-shadow: none; }
+.entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.entry-head b { font-family: var(--font-display); font-weight: 400; font-size: 20px; flex: 1; }
+.entry-head b small { font-size: 13px; color: var(--muted); }
+.entry-head .tag { font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 999px; padding: 4px 9px; }
+.draft { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.draft-orbs { display: flex; gap: 8px; flex: 1; }
+.draft-orbs .orb { cursor: pointer; transition: transform .12s, outline-color .12s; }
+.draft-orbs .orb.empty { font-size: 15px; }
+.draft-orbs .orb.sel { outline: 3px solid #fff; outline-offset: 2px; transform: translateY(-2px); }
+.draft-orbs .orb:not(.sel):hover { transform: translateY(-1px); }
+.board-wrap { margin-top: 14px; }
 .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
 .pal {
   height: 56px; border-radius: 12px; border: 2px solid #1a1a1a; cursor: pointer;
@@ -123,24 +138,27 @@
 }
 .pal svg { width: 24px; height: 24px; }
 .pal:active { transform: translateY(3px); box-shadow: none; }
+/* the chest's answer: one tap per number */
 .feedback { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.stepper {
-  display: grid; grid-template-columns: auto auto auto; justify-content: center; align-items: center; gap: 4px 8px;
-  background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 6px 8px;
+.fb-group { background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.fb-group .lbl { text-align: center; font-size: 12px; font-weight: 800; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.fb-group .lbl::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #1a1a1a; }
+.fb-group.g .lbl { color: var(--peg-green); } .fb-group.g .lbl::before { background: var(--peg-green); }
+.fb-group.o .lbl { color: var(--peg-orange); } .fb-group.o .lbl::before { background: var(--peg-orange); }
+.fb-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.fb-chips button {
+  height: 40px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--surface-2); color: var(--text); font-family: var(--font-display); font-weight: 400; font-size: 18px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.45); transition: transform .08s, background .15s;
+  -webkit-tap-highlight-color: transparent;
 }
-.stepper .lbl { grid-column: 1 / -1; text-align: center; font-size: 12px; font-weight: 800; color: var(--muted); }
-.stepper.g .lbl { color: var(--peg-green); }
-.stepper.o .lbl { color: var(--peg-orange); }
-.stepper b { font-family: var(--font-display); font-weight: 400; font-size: 22px; min-width: 1.2em; text-align: center; }
-.stepper button {
-  width: 32px; height: 32px; border-radius: 10px; border: 0; cursor: pointer;
-  background: var(--surface-2); color: var(--text); font-size: 18px; font-weight: 800;
-  box-shadow: 0 2px 0 rgba(0,0,0,.45);
-}
-.stepper button:disabled { opacity: .3; }
-.stepper button:active { transform: translateY(2px); box-shadow: none; }
+.fb-chips button:disabled { opacity: .25; cursor: default; }
+.fb-chips button:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.fb-group.g .fb-chips button.on { background: var(--peg-green); color: #fff; }
+.fb-group.o .fb-chips button.on { background: var(--peg-orange); color: #1a1a1a; }
 .entry-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
 .entry-actions .grow { flex: 1; }
+.entry .btn.primary.grow { padding: 12px 16px; font-size: 16px; }
 
 /* ---------- bubble extras ---------- */
 .reco { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
@@ -161,3 +179,20 @@
 .nb-item { display: inline-flex; align-items: center; gap: 3px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px 2px 3px; font-weight: 800; font-size: 12px; }
 .nb-item.off { opacity: .45; padding-right: 3px; }
 .nb-empty { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- phone layout: advice first, then the entry, then the chest ---------- */
+@media (max-width: 899px) {
+  .layout { gap: 14px; }
+  .layout > .board-col, .layout > .side { display: contents; }
+  .advice { order: 1; }
+  .entry { order: 2; }
+  .board-wrap { order: 3; margin-top: 0; }
+  .notebook { order: 4; margin-top: 0; }
+  .steps { order: 5; margin-top: 0; }
+  .settings { order: 6; margin-top: 0; }
+  .help { order: 7; margin-top: 0; }
+  .row.future { display: none; }
+  .board.empty .row { display: none; }
+  /* the suggested orbs sit right below in the entry: no need to show them twice */
+  .reco.mirrored { display: none; }
+}

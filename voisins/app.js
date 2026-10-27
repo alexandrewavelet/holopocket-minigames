@@ -16,18 +16,21 @@
     Acier: ['#B7B7CE', '#1a1a1a'], Fée: ['#D685AD', '#1a1a1a'],
   };
   const EXAMPLE = [
-    ['Lippoutou', null, ['Glace', 'Psy'], 1, 'Lippouti'],
-    ['Zapétrel', null, ['Électrik', 'Vol'], 9, 'Zapétrel'],
-    ['Cadoizo', null, ['Glace', 'Vol'], 2, 'Cadoizo'],
-    ['Chongjian', null, ['Ténèbres', 'Plante'], 9, 'Chongjian'],
-    ['Qwilfish', 'de Hisui', ['Ténèbres', 'Poison'], 8, 'Qwilfish'],
-    ['Nirondelle', null, ['Normal', 'Vol'], 3, 'Nirondelle'],
-    ['Baojian', null, ['Ténèbres', 'Glace'], 9, 'Baojian'],
-    ['Bekaglaçon', null, ['Glace'], 8, 'Bekaglaçon'],
-    ['Hexadron', null, ['Combat'], 8, 'Hexadron'],
+    ['Lippoutou', null, ['Glace', 'Psy'], 1, 'Lippouti', 124],
+    ['Zapétrel', null, ['Électrik', 'Vol'], 9, 'Zapétrel', 940],
+    ['Cadoizo', null, ['Glace', 'Vol'], 2, 'Cadoizo', 225],
+    ['Chongjian', null, ['Ténèbres', 'Plante'], 9, 'Chongjian', 1001],
+    ['Qwilfish', 'de Hisui', ['Ténèbres', 'Poison'], 8, 'Qwilfish', 10234],
+    ['Nirondelle', null, ['Normal', 'Vol'], 3, 'Nirondelle', 276],
+    ['Baojian', null, ['Ténèbres', 'Glace'], 9, 'Baojian', 1002],
+    ['Bekaglaçon', null, ['Glace'], 8, 'Bekaglaçon', 875],
+    ['Hexadron', null, ['Combat'], 8, 'Hexadron', 870],
   ];
-  const emptyCard = () => ({ name: '', form: null, types: [], gen: null, lineage: '' });
-  const cardFrom = ([name, form, types, gen, lineage]) => ({ name, form, types: types.slice(), gen, lineage });
+  // id = PokéAPI pokemon id (regional forms have their own), only used for the sprite
+  const emptyCard = () => ({ name: '', form: null, types: [], gen: null, lineage: '', id: null });
+  const cardFrom = ([name, form, types, gen, lineage, id]) => ({ name, form, types: types.slice(), gen, lineage, id: id || null });
+  const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
+  const spriteUrl = (card) => (card && Number.isInteger(card.id) ? `${SPRITES}${card.id}.png` : null);
   const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
   function validateSaved(s) {
@@ -40,6 +43,7 @@
         types: Array.isArray(c.types) ? c.types.filter((t) => TYPES.includes(t)).slice(0, 2) : [],
         gen: Number.isInteger(c.gen) && c.gen >= 1 && c.gen <= 9 ? c.gen : null,
         lineage: typeof c.lineage === 'string' ? c.lineage : '',
+        id: Number.isInteger(c.id) && c.id > 0 ? c.id : null,
       };
     });
     return { cards, mode: s.mode };
@@ -53,6 +57,7 @@
         mode: saved && saved.mode === 'step' ? 'step' : 'instant',
       });
       const editing = ref(null);
+      const detailsOpen = ref(false); // types / generation / lineage fields (the Pokédex pick usually fills them)
       const solutionIndex = ref(0);
       const undo = ref(null);
       const nameInput = ref(null);
@@ -180,8 +185,11 @@
           if (select) el.select();
         });
       }
+      // the manual fields stay open for a card that was started by hand (types or gen set but no Pokédex pick)
+      const needsManual = (c) => !!c && !c.id && (c.types.length > 0 || c.gen != null) && !S.isComplete(c);
       function openEditor(i) {
         editing.value = i;
+        detailsOpen.value = needsManual(state.cards[i]);
         UI.revealAboveSheet('.tray-card.active');
         focusName(true);
       }
@@ -192,6 +200,7 @@
         if (editing.value == null) return;
         if (editing.value < 8) {
           editing.value++;
+          detailsOpen.value = needsManual(state.cards[editing.value]);
           UI.revealAboveSheet('.tray-card.active');
           focusName(true);
         } else closeEditor();
@@ -199,12 +208,17 @@
       function prevCard() {
         if (editing.value > 0) {
           editing.value--;
+          detailsOpen.value = needsManual(state.cards[editing.value]);
           focusName(true);
         }
       }
       function onNameInput(e) {
-        current.value.name = e.target.value;
-        current.value.form = null;
+        const c = current.value;
+        c.name = e.target.value;
+        c.form = null;
+        c.id = null;
+        // a name the Pokédex does not know: open the manual fields
+        if (!detailsOpen.value && norm(c.name).length >= 3 && suggestions.value.length === 0) detailsOpen.value = true;
       }
       function onNameEnter() {
         if (suggestions.value.length) pick(suggestions.value[0]);
@@ -217,12 +231,14 @@
         c.types = m.t.slice(0, 2);
         c.gen = m.g;
         c.lineage = m.l;
+        c.id = m.p || m.id;
         const el = document.querySelector('.tray-card.active');
         nextTick(() => UI.confettiAt(el, { particleCount: 10, colors: ['#5be38a', '#ffffff'] }));
         nextCard();
       }
       function toggleType(t) {
         const c = current.value;
+        c.id = null; // edited by hand: the sprite may not match anymore
         const i = c.types.indexOf(t);
         if (i >= 0) c.types.splice(i, 1);
         else if (c.types.length < 2) c.types.push(t);
@@ -312,7 +328,7 @@
       window.voisins = { state, openEditor, closeEditor, pick, setMode, loadExample, resetAll, otherSolution, stepNext: stepper.next, stepLast: stepper.last, analysis };
 
       return {
-        TYPES, state, editing, undo, sparks, stepper, nameInput,
+        TYPES, state, editing, detailsOpen, undo, sparks, stepper, nameInput, spriteUrl,
         filledCount, analysis, status, steps, stepIndex: idx, stepMode, atResult, view, hotCards, advice, stepIcons, current, suggestions, lineageSuggestions,
         isComplete: S.isComplete, cardLabel, degreeOf, typeStyle, cardStyle, linkText, linkStyle,
         openEditor, closeEditor, nextCard, prevCard, onNameInput, onNameEnter, pick, toggleType, setGen, clearCard,

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#0f1020">
+  <title>Cartodle Solver</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='18' y='4' width='64' height='92' rx='9' fill='%238f7bff' stroke='%231a1a1a' stroke-width='6'/%3E%3Ctext x='50' y='68' font-family='Arial Black,Arial' font-size='52' font-weight='900' text-anchor='middle' fill='%23fff'%3E%3F%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+<div class="app" :class="{ 'step-mode': stepMode }">
+  <div class="sparks" aria-hidden="true">
+    <span v-for="s in sparks" :key="s.id" :style="s.style">?</span>
+  </div>
+
+  <header class="hero">
+    <a class="home-link" href="../">← Tous les mini-jeux</a>
+    <div class="brand">
+      <div class="mascot zarbi" :class="{ win: status === 'won', lost: status === 'invalid' }"><img src="../assets/unown.webp" alt=""></div>
+      <div>
+        <h1><span class="accent">Cartodle</span> Solver</h1>
+        <p class="tagline">Une carte mystère, sept indices, zéro hasard.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="segmented" role="tablist" aria-label="Mode">
+        <button type="button" :class="{ on: state.mode === 'instant' }" @click="setMode('instant')">⚡ Direct</button>
+        <button type="button" :class="{ on: state.mode === 'step' }" @click="setMode('step')">🔎 Pas à pas</button>
+      </div>
+      <button type="button" class="btn ghost" @click="loadExample" title="Charger les essais de la capture d'écran">Exemple</button>
+      <button type="button" class="btn primary" @click="resetAll">Nouvelle carte</button>
+      <button type="button" class="btn undo" v-if="undo" @click="restoreUndo">↶ Annuler</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="board-col">
+      <!-- ================= ENTRY ================= -->
+      <div class="entry" v-if="canEnter && !stepMode" :class="{ editing: editingIndex != null }">
+        <div class="entry-head">
+          <b>{{ editingIndex != null ? `Corriger l'essai ${editingIndex + 1}` : `Essai ${state.guesses.length + 1}` }}</b>
+          <span class="tag reco" v-if="draftCard && draftFromReco && editingIndex == null">✨ carte conseillée</span>
+          <button type="button" class="btn ghost sm" v-if="editingIndex != null" @click="cancelEdit">Annuler</button>
+        </div>
+
+        <!-- search -->
+        <template v-if="!draftCard">
+          <label class="field-label" for="card-search">Quelle carte as-tu jouée ?</label>
+          <input id="card-search" ref="searchInput" class="text-input" type="search" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="ex. Fulgudog V, Toxizap, 836…" :value="query" @input="query = $event.target.value" @keydown.enter.prevent="pickFirst" @keydown.esc.prevent="query = ''">
+          <ul class="suggest" v-if="suggestions.length">
+            <li v-for="c in suggestions" :key="c.id" @mousedown.prevent @click="pick(c)">
+              <span class="thumb sm" :style="typeStyle(c)"><img v-if="thumb(c)" :src="thumb(c)" alt="" loading="lazy" @error="broken.add(c.id)"></span>
+              <span class="sbody">
+                <span class="sname">{{ c.name }} <small>n° {{ c.dex }}</small></span>
+                <span class="smeta">{{ c.set.name }} · {{ c.rarity || 'sans rareté' }} · {{ c.hp }} PV</span>
+              </span>
+            </li>
+          </ul>
+          <p class="sheet-hint" v-else-if="query.trim().length >= 2">Aucune carte ne commence par « {{ query.trim() }} ». Essaie le nom exact de la carte ou son n° de Pokédex.</p>
+          <p class="sheet-hint" v-else-if="recommendation">Ou <button type="button" class="linkish" @click="useRecommendation">reprends la carte conseillée</button>.</p>
+        </template>
+
+        <!-- picked card + answers -->
+        <template v-else>
+          <div class="picked">
+            <span class="thumb" :style="typeStyle(draftCard)"><img v-if="thumb(draftCard)" :src="thumb(draftCard)" alt="" loading="lazy" @error="broken.add(draftCard.id)"></span>
+            <span class="pbody">
+              <span class="pname">{{ draftCard.name }} <small>n° {{ draftCard.dex }}</small></span>
+              <span class="pmeta">{{ draftCard.set.name }} ({{ yearOf(draftCard) }}) · {{ draftCard.rarity || 'sans rareté' }} · {{ draftCard.hp }} PV<template v-if="draftCard.illustrator"> · {{ draftCard.illustrator }}</template></span>
+            </span>
+            <button type="button" class="btn ghost sm" @click="changeCard">Changer</button>
+          </div>
+          <p class="sheet-hint left">Recopie ce que le jeu affiche sous chaque attribut :</p>
+          <div class="answers">
+            <div v-for="(a, k) in ATTRS" :key="a" class="ans" :class="{ set: !!draft.fb[a] }">
+              <span class="meta"><small>{{ k + 1 }} · {{ LABELS[a] }}</small><b>{{ valueOf(draftCard, a) }}</b></span>
+              <span class="states">
+                <button v-for="st in STATES[a]" :key="st" type="button" class="st" :class="[st, { on: draft.fb[a] === st }]" :title="stateTitle(a, st)" :aria-label="stateTitle(a, st)" @click="setState(a, st)">{{ ICON[st] }}</button>
+              </span>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <button type="button" class="btn ghost sm" v-if="S.ATTRS.some(a => draft.fb[a])" @click="clearAnswers">Effacer</button>
+            <button type="button" class="btn danger sm" v-if="editingIndex != null" @click="deleteGuess(editingIndex)">Supprimer</button>
+            <button type="button" class="btn primary grow" :disabled="!draftComplete" @click="submit">{{ editingIndex != null ? 'Enregistrer' : "Valider l'essai" }}</button>
+          </div>
+        </template>
+      </div>
+
+      <!-- ================= HISTORY ================= -->
+      <div class="board" :class="{ won: status === 'won', invalid: status === 'invalid' }">
+        <div class="board-top">
+          <span>Essais</span>
+          <span class="muted" v-if="state.guesses.length">{{ shownGuesses }}/{{ state.guesses.length }}</span>
+        </div>
+        <p class="board-empty" v-if="!state.guesses.length">Aucun essai pour l'instant. Joue la carte conseillée dans le jeu, puis recopie ses sept réponses ici.</p>
+        <div v-for="row in rows" :key="row.index" class="row" :class="row.cls" @click="editGuess(row.index)">
+          <div class="row-head">
+            <span class="rn">{{ row.index + 1 }}</span>
+            <span class="thumb sm" :style="typeStyle(row.card)"><img v-if="thumb(row.card)" :src="thumb(row.card)" alt="" loading="lazy" @error="broken.add(row.card.id)"></span>
+            <span class="rbody">
+              <span class="rname">{{ row.card.name }}</span>
+              <span class="rmeta">{{ row.card.set.name }} · {{ row.card.rarity || 'sans rareté' }} · {{ row.card.hp }} PV</span>
+            </span>
+            <span class="rtag" v-if="row.cls.won">trouvée !</span>
+          </div>
+          <div class="cells">
+            <span v-for="(c, k) in row.cells" :key="c.attr" class="cell" :class="c.state || 'unset'" :style="{ '--i': k }" :title="LABELS[c.attr] + ' : ' + c.value + ' — ' + stateTitle(c.attr, c.state)">
+              <b class="ic">{{ c.state ? ICON[c.state] : '?' }}</b>
+              <small class="lbl">{{ SHORT[c.attr] }}</small>
+              <span class="val">{{ c.value }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <details class="settings">
+        <summary>⚙️ Réglages <span class="count">{{ pool.length.toLocaleString('fr-FR') }} cartes en réserve</span></summary>
+        <div class="settings-body">
+          <label class="check"><input type="checkbox" v-model="state.pocket"> Inclure les cartes <b>Pokémon Pocket</b> dans les cartes mystères possibles</label>
+          <p class="muted">Réserve = cartes Pokémon de rareté « Rare » ou mieux, parmi les {{ ALL.length.toLocaleString('fr-FR') }} cartes françaises connues (TCGdex, {{ DB.generated }}). Les essais peuvent être n'importe quelle carte.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="side">
+      <advice-bubble
+        :advice="advice" :step-mode="stepMode" :step-index="stepIndex" :step-count="steps.length"
+        :mascot-class="{ lost: status === 'invalid', win: status === 'won', think: status === 'empty' }"
+        @first="stepper.first" @prev="stepper.prev" @next="stepper.next" @last="stepper.last"
+      >
+        <template #mascot><span class="zarbi-glow"><img src="../assets/unown.webp" alt=""></span></template>
+        <div class="reco" :class="{ dup: draftIsRecommendation }" v-if="shownRecommendation">
+          <span class="thumb lg" :style="typeStyle(shownRecommendation.card)"><img v-if="thumb(shownRecommendation.card)" :src="thumb(shownRecommendation.card)" alt="" loading="lazy" @error="broken.add(shownRecommendation.card.id)"></span>
+          <span class="reco-body">
+            <span class="reco-name">{{ shownRecommendation.card.name }} <small>n° {{ shownRecommendation.card.dex }}</small></span>
+            <span class="reco-meta">{{ shownRecommendation.card.set.name }} ({{ yearOf(shownRecommendation.card) }}) · {{ shownRecommendation.card.rarity }} · {{ shownRecommendation.card.hp }} PV<template v-if="shownRecommendation.card.illustrator"> · {{ shownRecommendation.card.illustrator }}</template></span>
+            <button type="button" class="btn primary sm" v-if="canEnter && !draftIsRecommendation" @click="useRecommendation">J'ai joué cette carte →</button>
+          </span>
+        </div>
+        <div class="cands" v-if="shownCandidates.length">
+          <span class="field-label">Cartes encore possibles</span>
+          <ul class="cand-list">
+            <li v-for="c in shownCandidates" :key="c.id">
+              <button type="button" class="cand" :class="{ reco: recommendation && recommendation.card.id === c.id }" :title="'J\'ai joué ' + c.name" @click="useCard(c)">
+                <span class="thumb xs" :style="typeStyle(c)"><img v-if="thumb(c)" :src="thumb(c)" alt="" loading="lazy" @error="broken.add(c.id)"></span>
+                <span class="cbody"><span class="cname">{{ c.name }}</span><span class="cmeta">{{ c.set.name }} · {{ c.rarity }} · {{ c.hp }} PV</span></span>
+              </button>
+            </li>
+          </ul>
+          <button type="button" class="btn ghost sm" v-if="analysis.count > shownCandidates.length" @click="showAll = true">Voir les {{ analysis.count }} cartes</button>
+        </div>
+      </advice-bubble>
+
+      <!-- carnet -->
+      <div class="notebook" v-if="notebook && notebook.length">
+        <div class="nb-head">📒 Carnet <span class="muted">ce qu'on sait de la carte mystère</span></div>
+        <ul class="nb-list">
+          <li v-for="c in notebook" :key="c.key" :class="{ sure: c.sure }">
+            <span class="nb-ic">{{ c.sure ? '✓' : '…' }}</span>
+            <span class="nb-lbl">{{ c.label }}</span>
+            <span class="nb-val">{{ c.value }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <steps-list :steps="steps" :step-mode="stepMode" :step-index="stepIndex" :peek="stepper.peek.value" :icons="stepIcons" @select="stepper.onSelect" @hover="stepper.onHover"></steps-list>
+
+      <details class="help">
+        <summary>Comment utiliser le solveur</summary>
+        <ol>
+          <li>Joue dans le jeu la <b>carte conseillée</b> (ou n'importe quelle carte, cherche-la par son nom ou son n° de Pokédex).</li>
+          <li>Recopie les <b>sept réponses</b> du jeu : ✓ identique, ≈ presque (même série d'extensions, PV à 20 près), ↑ la carte mystère a un n° de Pokédex plus grand / plus de PV / est plus rare / est sortie plus tard, ↓ l'inverse, ✗ différent. Valide.</li>
+          <li>Le solveur ne garde que les cartes « rares ou mieux » compatibles avec toutes les réponses et conseille celle qui en élimine le plus. Le <b>carnet</b> résume ce qui est certain.</li>
+          <li>Touche un essai passé pour le corriger ou le supprimer. Les vignettes viennent de TCGdex et ne sont pas indispensables.</li>
+          <li>Clavier : <kbd>/</kbd> cherche une carte, <kbd>Entrée</kbd> choisit la première suggestion ou valide l'essai, <kbd>1</kbd>…<kbd>7</kbd> font défiler la réponse de chaque attribut, <kbd>⌫</kbd> change de carte ; en pas à pas, <kbd>←</kbd> <kbd>→</kbd>.</li>
+        </ol>
+      </details>
+    </section>
+  </main>
+</div>
+</div>
+
+<script src="../vendor/vue.global.prod.js"></script>
+<script src="../vendor/confetti.browser.min.js"></script>
+<script src="../shared/js/ui.js"></script>
+<script src="../data/cards.js"></script>
+<script src="solver.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

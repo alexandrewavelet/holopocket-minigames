@@ -74,53 +74,26 @@
     </div>
   </header>
 
+  <!-- On phones the two columns are flattened (display: contents) and reordered:
+       advice → entry → chest → notebook → steps → settings → help. -->
   <main class="layout">
     <section class="board-col">
-      <div class="energy-set">
-        <span class="field-label">Énergies du jeu</span>
-        <div class="chips">
-          <button v-for="e in ENERGIES" :key="e.id" type="button" class="chip-toggle energy-chip" :class="{ on: state.enabled.includes(e.id) }" :style="energyStyle(e.id)" :disabled="usedEnergies.has(e.id)" :title="usedEnergies.has(e.id) ? 'Utilisée dans un essai' : ''" @click="toggleEnergy(e.id)">
-            <svg><use :href="'#' + e.icon"/></svg>{{ e.id }}
-          </button>
-        </div>
-      </div>
-
-      <div class="board-head">
-        <div class="progress ok" v-if="analysis.count">
-          <span>{{ shownCount.toLocaleString('fr-FR') }} code{{ shownCount > 1 ? 's' : '' }} possible{{ shownCount > 1 ? 's' : '' }}</span>
-          <span class="tries">essai {{ Math.min(state.attempts.length + 1, 8) }}/8</span>
-        </div>
-      </div>
-
-      <!-- ================= THE CHEST BOARD ================= -->
-      <div class="board" :class="{ won: status === 'won', invalid: status === 'invalid' }">
-        <div class="board-top">
-          <span>Coffre</span>
-          <span class="code-preview" v-if="status === 'solved' || status === 'won'">
-            <i v-for="(sym, i) in finalCode" :key="i" class="orb sm" :style="energyStyle(sym)"><svg><use :href="'#' + iconOf(sym)"/></svg></i>
-          </span>
-        </div>
-        <div v-for="row in rows" :key="row.index" class="row" :class="row.cls" @click="row.onClick && row.onClick()">
-          <span class="rn">{{ row.index + 1 }}</span>
-          <span class="orbs">
-            <i v-for="(sym, i) in row.guess" :key="i" class="orb" :class="{ empty: !sym, sel: row.draft && draftSlot === i }" :style="sym ? energyStyle(sym) : null" @click.stop="row.draft ? tapSlot(i) : (row.onClick && row.onClick())">
-              <svg v-if="sym"><use :href="'#' + iconOf(sym)"/></svg>
-            </i>
-          </span>
-          <span class="fb" v-if="row.guess.some(Boolean) || row.draft">
-            <b class="peg g" :class="{ dim: row.draft }">{{ row.exact }}</b>
-            <b class="peg o" :class="{ dim: row.draft }">{{ row.misplaced }}</b>
-          </span>
-          <span class="fb" v-else><b class="peg empty"></b><b class="peg empty"></b></span>
-        </div>
-      </div>
-
       <!-- ================= ENTRY ================= -->
       <div class="entry" v-if="canEnter && !stepMode" :class="{ editing: editingIndex != null }">
         <div class="entry-head">
-          <b>{{ editingIndex != null ? `Corriger l'essai ${editingIndex + 1}` : `Essai ${state.attempts.length + 1}` }}</b>
-          <button type="button" class="btn ghost sm" v-if="recommendation && !draftIsRecommendation" @click="useRecommendation">✨ Utiliser le conseil</button>
+          <b v-if="editingIndex != null">Corriger l'essai {{ editingIndex + 1 }}</b>
+          <b v-else>Essai {{ state.attempts.length + 1 }} <small>/ 8</small></b>
+          <span class="tag" v-if="draftIsRecommendation && editingIndex == null">✨ conseil du solveur</span>
+          <button type="button" class="btn ghost sm" v-else-if="recommendation && editingIndex == null" @click="useRecommendation">✨ Prendre le conseil</button>
           <button type="button" class="btn ghost sm" v-if="editingIndex != null" @click="cancelEdit">Annuler</button>
+        </div>
+        <div class="draft">
+          <div class="draft-orbs" role="group" aria-label="Énergies jouées">
+            <i v-for="(sym, i) in draft.guess" :key="i" class="orb lg" :class="{ empty: !sym, sel: cursor === i }" :style="sym ? energyStyle(sym) : null" :title="sym || 'Touche une énergie'" @click="tapSlot(i)">
+              <svg v-if="sym"><use :href="'#' + iconOf(sym)"/></svg><span v-else>{{ i + 1 }}</span>
+            </i>
+          </div>
+          <button type="button" class="btn ghost sm" v-if="draft.guess.some(Boolean)" @click="clearDraft">Vider</button>
         </div>
         <div class="palette">
           <button v-for="(e, i) in enabledEnergies" :key="e.id" type="button" class="pal" :style="energyStyle(e.id)" :title="e.id + ' (' + (i + 1) + ')'" @mousedown.prevent @click="addEnergy(e.id)">
@@ -128,26 +101,74 @@
           </button>
         </div>
         <div class="feedback">
-          <div class="stepper g">
+          <div class="fb-group g">
             <span class="lbl">Bien placées</span>
-            <button type="button" @click="bump('exact', -1)" :disabled="draft.exact <= 0" aria-label="moins">−</button>
-            <b>{{ draft.exact }}</b>
-            <button type="button" @click="bump('exact', 1)" :disabled="draft.exact + draft.misplaced >= 4" aria-label="plus">+</button>
+            <div class="fb-chips">
+              <button v-for="n in 5" :key="n" type="button" :class="{ on: draft.exact === n - 1 }" :disabled="n - 1 + draft.misplaced > 4" @click="setFeedback('exact', n - 1)">{{ n - 1 }}</button>
+            </div>
           </div>
-          <div class="stepper o">
+          <div class="fb-group o">
             <span class="lbl">Ailleurs</span>
-            <button type="button" @click="bump('misplaced', -1)" :disabled="draft.misplaced <= 0" aria-label="moins">−</button>
-            <b>{{ draft.misplaced }}</b>
-            <button type="button" @click="bump('misplaced', 1)" :disabled="draft.exact + draft.misplaced >= 4" aria-label="plus">+</button>
+            <div class="fb-chips">
+              <button v-for="n in 5" :key="n" type="button" :class="{ on: draft.misplaced === n - 1 }" :disabled="n - 1 + draft.exact > 4" @click="setFeedback('misplaced', n - 1)">{{ n - 1 }}</button>
+            </div>
           </div>
         </div>
         <div class="entry-actions">
-          <button type="button" class="btn ghost sm" v-if="draft.guess.some(Boolean)" @click="clearDraft">Vider</button>
           <button type="button" class="btn danger sm" v-if="editingIndex != null" @click="deleteAttempt(editingIndex)">Supprimer</button>
           <button type="button" class="btn primary grow" :disabled="!draftComplete" @click="submit">{{ editingIndex != null ? 'Enregistrer' : "Valider l'essai" }}</button>
         </div>
-        <p class="sheet-hint">Touche les énergies pour remplir les 4 emplacements, puis saisis la réponse du coffre.</p>
+        <p class="sheet-hint" v-if="editingIndex == null && draftIsRecommendation">Joue ce coup dans le jeu, puis indique ce que le coffre répond.</p>
+        <p class="sheet-hint" v-else-if="editingIndex == null">Touche un emplacement puis une énergie pour le changer.</p>
       </div>
+
+      <!-- ================= THE CHEST (history) ================= -->
+      <div class="board-wrap">
+        <div class="board-head">
+          <div class="progress ok" v-if="analysis.count">
+            <span>{{ shownCount.toLocaleString('fr-FR') }} code{{ shownCount > 1 ? 's' : '' }} possible{{ shownCount > 1 ? 's' : '' }}</span>
+            <span class="tries">{{ state.attempts.length }}/8 essai{{ state.attempts.length > 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+        <div class="board" :class="{ won: status === 'won', invalid: status === 'invalid', empty: state.attempts.length === 0 }">
+          <div class="board-top">
+            <span>Coffre</span>
+            <span class="code-preview" v-if="status === 'solved' || status === 'won'">
+              <i v-for="(sym, i) in finalCode" :key="i" class="orb sm" :style="energyStyle(sym)"><svg><use :href="'#' + iconOf(sym)"/></svg></i>
+            </span>
+          </div>
+          <p class="board-empty" v-if="state.attempts.length === 0">Aucun essai joué. Tes essais s'empilent ici ; touche-en un pour le corriger.</p>
+          <div v-for="row in rows" :key="row.index" class="row" :class="row.cls" @click="row.onClick && row.onClick()">
+            <span class="rn">{{ row.index + 1 }}</span>
+            <span class="orbs">
+              <i v-for="(sym, i) in row.guess" :key="i" class="orb" :class="{ empty: !sym }" :style="sym ? energyStyle(sym) : null">
+                <svg v-if="sym"><use :href="'#' + iconOf(sym)"/></svg>
+              </i>
+            </span>
+            <span class="fb" v-if="row.guess.some(Boolean)">
+              <b class="peg g">{{ row.exact }}</b>
+              <b class="peg o">{{ row.misplaced }}</b>
+            </span>
+            <span class="fb" v-else><b class="peg empty"></b><b class="peg empty"></b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SETTINGS ================= -->
+      <details class="settings">
+        <summary>
+          <span>⚙️ Énergies du jeu</span>
+          <span class="count">{{ state.enabled.length }} / {{ ENERGIES.length }}</span>
+        </summary>
+        <div class="settings-body">
+          <p class="muted">Active les énergies que ton coffre propose (par défaut, les six vues dans le jeu). Une énergie déjà jouée ne peut pas être retirée.</p>
+          <div class="chips">
+            <button v-for="e in ENERGIES" :key="e.id" type="button" class="chip-toggle energy-chip" :class="{ on: state.enabled.includes(e.id) }" :style="energyStyle(e.id)" :disabled="usedEnergies.has(e.id)" :title="usedEnergies.has(e.id) ? 'Utilisée dans un essai' : ''" @click="toggleEnergy(e.id)">
+              <svg><use :href="'#' + e.icon"/></svg>{{ e.id }}
+            </button>
+          </div>
+        </div>
+      </details>
     </section>
 
     <section class="side">
@@ -157,7 +178,7 @@
         @first="stepper.first" @prev="stepper.prev" @next="stepper.next" @last="stepper.last"
       >
         <template #mascot><svg><use :href="status === 'invalid' || status === 'out' ? '#coin-sad' : '#coin-face'"/></svg></template>
-        <div class="reco" v-if="shownRecommendation">
+        <div class="reco" v-if="shownRecommendation" :class="{ mirrored: canEnter && draftIsRecommendation && !stepMode }">
           <div class="reco-orbs">
             <i v-for="(sym, i) in shownRecommendation.guess" :key="i" class="orb lg" :style="energyStyle(sym)" :title="sym"><svg><use :href="'#' + iconOf(sym)"/></svg></i>
           </div>
@@ -194,10 +215,10 @@
       <details class="help">
         <summary>Comment utiliser le solveur</summary>
         <ol>
-          <li>Vérifie les <b>énergies du jeu</b> : active celles que ton coffre propose (par défaut les six vues dans le jeu).</li>
-          <li>Joue l'<b>essai conseillé</b> dans le jeu, touche « J'ai joué ce coup », puis saisis ce que le coffre répond : <b>bien placées</b> (vert) et <b>ailleurs</b> (orange). Valide.</li>
+          <li>L'essai conseillé est <b>déjà prêt</b> dans « Essai 1 » : joue-le dans le jeu, puis touche ce que le coffre répond — <b>bien placées</b> (vert) et <b>ailleurs</b> (orange) — et valide.</li>
+          <li>Tu as joué autre chose ? Touche un emplacement puis une énergie pour le remplacer, ou « Vider » pour repartir de zéro.</li>
           <li>Le solveur garde tous les codes compatibles et conseille l'essai qui en élimine le plus, quel que soit le retour. Le <b>carnet</b> résume ce qui est certain.</li>
-          <li>Touche un essai passé pour le corriger ou le supprimer.</li>
+          <li>Touche un essai passé dans le coffre pour le corriger ou le supprimer. Les <b>énergies du jeu</b> se règlent en bas de page.</li>
           <li>Clavier : <kbd>1</kbd>…<kbd>9</kbd> ajoutent une énergie (dans l'ordre de la palette), <kbd>⌫</kbd> retire la dernière, <kbd>Entrée</kbd> valide ; en pas à pas, <kbd>←</kbd> <kbd>→</kbd>.</li>
         </ol>
       </details>
