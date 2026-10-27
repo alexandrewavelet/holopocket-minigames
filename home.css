@@ -1,0 +1,126 @@
+/* HoloPocket Minigames — home page (shared tokens in shared/css/base.css) */
+body.home { overflow-x: hidden; }
+.home-wrap { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 28px 16px 40px; }
+
+/* ---------- animated background ---------- */
+.bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.orbit {
+  position: absolute; border-radius: 50%; filter: blur(60px); opacity: .55;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+.orbit.o1 { width: 520px; height: 520px; left: -140px; top: -160px; background: radial-gradient(circle, #ffd60a, transparent 65%); }
+.orbit.o2 { width: 460px; height: 460px; right: -120px; top: 10%; background: radial-gradient(circle, #f5b301, transparent 65%); animation-delay: -6s; }
+.orbit.o3 { width: 560px; height: 560px; left: 30%; bottom: -220px; background: radial-gradient(circle, #2fbf71, transparent 65%); animation-delay: -12s; }
+@keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(60px, 40px) scale(1.15); } }
+.particles svg {
+  position: absolute; width: 18px; height: 18px; opacity: 0;
+  animation: float var(--dur, 10s) linear infinite; animation-delay: var(--delay, 0s);
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* ---------- hero ---------- */
+.home-hero { text-align: center; padding: 20px 0 10px; animation: rise .7s ease-out both; }
+.eyebrow { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+.pill { font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.pill.alt { color: var(--yellow); border-color: rgba(255,214,10,.4); }
+.holo-title {
+  font-family: var(--font-display); font-weight: 400; margin: 0;
+  font-size: clamp(42px, 10vw, 92px); line-height: .95; letter-spacing: 1px;
+  text-shadow: 0 4px 0 rgba(0,0,0,.4);
+}
+.holo-title .word { display: inline-block; }
+.holo-title .accent {
+  background: linear-gradient(100deg, #ffd60a 0%, #fff 25%, #ff7ad9 45%, #7ad9ff 60%, #ffd60a 85%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: holoText 6s linear infinite;
+  filter: drop-shadow(0 4px 0 rgba(0,0,0,.4)) drop-shadow(0 0 18px rgba(255,214,10,.35));
+  text-shadow: none;
+}
+@keyframes holoText { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+.lead { max-width: 640px; margin: 16px auto 0; font-size: clamp(15px, 2.4vw, 19px); color: var(--muted); line-height: 1.5; }
+.lead b { color: var(--text); }
+.hero-cta { display: flex; justify-content: center; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.btn.big { padding: 12px 20px; font-size: 16px; }
+.btn.primary.big { animation: glowPulse 2.4s ease-in-out infinite; }
+
+/* ---------- game cards ---------- */
+.games {
+  display: grid; gap: 18px; margin-top: 36px;
+  grid-template-columns: 1fr;
+  perspective: 1200px;
+}
+@media (min-width: 720px) { .games { grid-template-columns: repeat(3, 1fr); } }
+.game {
+  --c1: #ffd60a; --c2: #ff9f1c; --ink: #1a1a1a;
+  position: relative; display: flex; flex-direction: column; gap: 14px;
+  padding: 18px 18px 20px; border-radius: 24px; text-decoration: none; color: var(--text);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--c1) 28%, var(--surface)), var(--surface) 55%, var(--bg-2));
+  border: 2px solid color-mix(in srgb, var(--c1) 55%, var(--border));
+  box-shadow: 0 24px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+  transform-style: preserve-3d;
+  transition: transform .18s ease-out, box-shadow .25s, border-color .25s;
+  animation: rise .7s ease-out both; animation-delay: calc(.15s + var(--i) * .12s);
+  overflow: hidden; isolation: isolate;
+}
+.game:hover { border-color: var(--c1); box-shadow: 0 30px 60px rgba(0,0,0,.55), 0 0 40px color-mix(in srgb, var(--c1) 35%, transparent); }
+.game.vf { --c1: #ffd60a; --c2: #ff9f1c; }
+.game.cf { --c1: #f5b301; --c2: #c9962b; }
+.game.vs { --c1: #5be38a; --c2: #2fbf71; --ink: #0f1f16; }
+.holo {
+  position: absolute; inset: -40%; z-index: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.18) 42%, rgba(255,122,217,.25) 48%, rgba(122,217,255,.25) 54%, rgba(255,255,255,.14) 60%, transparent 72%);
+  background-size: 220% 220%;
+  mix-blend-mode: screen; opacity: .9;
+  animation: shimmer 7s ease-in-out infinite; animation-delay: calc(var(--i) * -2.3s);
+  transform: translate(var(--hx, 0), var(--hy, 0));
+}
+@keyframes shimmer { 0% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } 100% { background-position: 0% 0%; } }
+.game > * { position: relative; z-index: 1; }
+.art {
+  height: 150px; display: grid; place-items: center; position: relative;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c1) 40%, transparent), transparent 70%);
+  transform: translateZ(30px);
+}
+.art .big { width: 118px; height: 118px; filter: drop-shadow(0 12px 16px rgba(0,0,0,.5)); animation: bob 3.4s ease-in-out infinite; animation-delay: calc(var(--i) * -1s); }
+.art .deco { position: absolute; width: 26px; height: 26px; color: var(--c1); opacity: .9; filter: drop-shadow(0 0 8px var(--c1)); animation: twinkle 2.6s ease-in-out infinite; }
+.art .d1 { left: 14%; top: 18%; animation-delay: -.4s; }
+.art .d2 { right: 12%; top: 30%; animation-delay: -1.3s; width: 20px; height: 20px; }
+.art .d3 { right: 24%; bottom: 14%; animation-delay: -2s; width: 16px; height: 16px; }
+@keyframes twinkle { 0%, 100% { transform: scale(.8) rotate(-8deg); opacity: .6; } 50% { transform: scale(1.15) rotate(8deg); opacity: 1; } }
+.body { display: flex; flex-direction: column; gap: 6px; transform: translateZ(20px); }
+.kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--c1); font-weight: 800; }
+.title { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.desc { color: var(--muted); font-size: 14px; line-height: 1.45; }
+.feats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.feats i { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid var(--border); }
+.cta {
+  margin-top: auto; align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--c1); color: var(--ink);
+  font-weight: 800; font-size: 15px; padding: 11px 18px; border-radius: 999px;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--c2) 70%, #000), 0 10px 24px color-mix(in srgb, var(--c1) 35%, transparent);
+  transform: translateZ(40px);
+  transition: transform .15s, box-shadow .15s, filter .15s;
+}
+.cta b { transition: transform .2s; }
+.game:hover .cta { filter: brightness(1.08); }
+.game:hover .cta b { transform: translateX(4px); }
+.game:active .cta { transform: translateZ(40px) translateY(3px); box-shadow: 0 1px 0 color-mix(in srgb, var(--c2) 70%, #000); }
+
+/* ---------- how it works ---------- */
+.how { display: grid; gap: 12px; margin-top: 40px; grid-template-columns: 1fr; animation: rise .7s ease-out both; animation-delay: .6s; }
+@media (min-width: 720px) { .how { grid-template-columns: repeat(3, 1fr); } }
+.step {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px;
+}
+.step .n { grid-row: span 2; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: var(--ink); font-family: var(--font-display); font-size: 18px; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.step b { font-size: 15px; }
+.step span:last-child { font-size: 13px; color: var(--muted); }
+
+.home-foot { margin-top: 36px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.home-foot a { color: var(--yellow); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }

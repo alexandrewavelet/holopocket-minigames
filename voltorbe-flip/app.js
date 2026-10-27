@@ -1,8 +1,9 @@
-/* Voltorbe Flip Solver — Vue app (UI only; all logic lives in solver.js). */
+/* Voltorbe Flip Solver — Vue app (UI only; all logic lives in solver.js, shared UI in ../shared/js/ui.js). */
 (function () {
   'use strict';
   const { createApp, reactive, ref, computed, watch, nextTick, onMounted, onUnmounted } = Vue;
   const S = VoltorbSolver;
+  const UI = HoloUI;
 
   const STORAGE_KEY = 'voltorbe-flip-solver:v1';
   const COLOR_CLASS = ['c-red', 'c-green', 'c-orange', 'c-blue', 'c-purple'];
@@ -16,40 +17,24 @@
   const emptyGrid = () => Array.from({ length: 5 }, () => Array(5).fill(null));
   const linesFrom = (pairs) => pairs.map(([sum, volt]) => ({ sum, volt }));
 
-  // Restore a saved game only if its shape is exactly what the app writes:
-  // a stale or hand-edited entry must not break the render.
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const s = JSON.parse(raw);
-      const int = (v, max) => v === null || (Number.isInteger(v) && v >= 0 && v <= max);
-      const isLine = (l) => !!l && typeof l === 'object' && int(l.sum, 15) && int(l.volt, 5);
-      const isLines = (a) => Array.isArray(a) && a.length === 5 && a.every(isLine);
-      const isGrid = (g) => Array.isArray(g) && g.length === 5 && g.every((row) => Array.isArray(row) && row.length === 5 && row.every((v) => int(v, 3)));
-      if (!s || !isLines(s.rows) || !isLines(s.cols) || !isGrid(s.revealed)) return null;
-      return {
-        rows: s.rows.map((l) => ({ sum: l.sum, volt: l.volt })),
-        cols: s.cols.map((l) => ({ sum: l.sum, volt: l.volt })),
-        revealed: s.revealed.map((row) => row.slice()),
-        mode: s.mode,
-      };
-    } catch (e) {
-      return null;
-    }
+  // Restore a saved game only if its shape is exactly what the app writes.
+  function validateSaved(s) {
+    const int = (v, max) => v === null || (Number.isInteger(v) && v >= 0 && v <= max);
+    const isLine = (l) => !!l && typeof l === 'object' && int(l.sum, 15) && int(l.volt, 5);
+    const isLines = (a) => Array.isArray(a) && a.length === 5 && a.every(isLine);
+    const isGrid = (g) => Array.isArray(g) && g.length === 5 && g.every((row) => Array.isArray(row) && row.length === 5 && row.every((v) => int(v, 3)));
+    if (!s || !isLines(s.rows) || !isLines(s.cols) || !isGrid(s.revealed)) return null;
+    return {
+      rows: s.rows.map((l) => ({ sum: l.sum, volt: l.volt })),
+      cols: s.cols.map((l) => ({ sum: l.sum, volt: l.volt })),
+      revealed: s.revealed.map((row) => row.slice()),
+      mode: s.mode,
+    };
   }
-  function save(state) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows: state.rows, cols: state.cols, revealed: state.revealed, mode: state.mode }));
-    } catch (e) {
-      /* private mode, quota… the app still works without persistence */
-    }
-  }
-  const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  createApp({
+  const app = createApp({
     setup() {
-      const saved = load();
+      const saved = UI.loadJSON(STORAGE_KEY, validateSaved);
       const state = reactive({
         rows: saved ? saved.rows : emptyLines(),
         cols: saved ? saved.cols : emptyLines(),
@@ -57,20 +42,11 @@
         mode: saved && saved.mode === 'step' ? 'step' : 'instant',
       });
       const active = ref(null); // { type: 'field', line, index, part } | { type: 'cell', r, c }
-      const stepIndex = ref(0);
-      const hoverStep = ref(null); // step under the mouse in the "why" list (instant mode)
-      const pinnedStep = ref(null); // step clicked in that list
-      const peek = computed(() => hoverStep.value || pinnedStep.value);
       const pending = ref(false); // a lone "1" is waiting for a possible second digit
       const undo = ref(null); // snapshot restorable after "Nouvelle grille"
       let pendingTimer = null;
       let undoTimer = null;
-
-      // Decorative sparks: fixed random layout computed once.
-      const sparks = Array.from({ length: 10 }, (_, i) => ({
-        id: i,
-        style: { left: `${(i * 97) % 100}%`, '--dur': `${8 + (i * 37) % 7}s`, '--delay': `${-((i * 53) % 9)}s`, transform: `scale(${0.7 + ((i * 13) % 6) / 10})` },
-      }));
+      const sparks = UI.sparks(10);
 
       // ---------------- derived state ----------------
       const fieldOrder = [];
@@ -82,20 +58,14 @@
       const analysis = computed(() => S.analyze({ rows: state.rows, cols: state.cols }, state.revealed));
       const status = computed(() => analysis.value.status);
       const steps = computed(() => analysis.value.steps);
-      const lastIndex = computed(() => steps.value.length - 1);
-      const stepMode = computed(() => state.mode === 'step' && steps.value.length > 0 && !!analysis.value.cells);
-      // stepIndex is reset by a watcher after the grid changes; clamp it so a shorter
-      // step list never indexes out of range in between.
-      const idx = computed(() => Math.max(0, Math.min(stepIndex.value, lastIndex.value)));
-      const currentStep = computed(() => (stepMode.value ? steps.value[idx.value] : null));
-      const atResult = computed(() => !stepMode.value || idx.value === lastIndex.value);
+      const stepper = UI.useStepper(steps, computed(() => state.mode === 'step' && !!analysis.value.cells));
+      const { idx, stepMode, currentStep, atResult, highlightStep } = stepper;
       const showProbs = computed(() => !!analysis.value.cells && (!stepMode.value || idx.value >= analysis.value.enumStepIndex));
       const boardPoss = computed(() => {
         const a = analysis.value;
         if (!a.snapshots.length) return null;
         return stepMode.value ? a.snapshots[idx.value] : a.snapshots[a.snapshots.length - 1];
       });
-      const highlightStep = computed(() => currentStep.value || peek.value);
       const stepLine = computed(() => (highlightStep.value && highlightStep.value.line) || null);
       const changedSet = computed(() => {
         const set = new Set();
@@ -178,23 +148,12 @@
         if (!a || a.type !== 'field') return -1;
         return fieldOrder.findIndex((f) => f.line === a.line && f.index === a.index && f.part === a.part);
       });
-      const isMobile = () => window.matchMedia('(max-width: 899px)').matches;
-
       function clearPending() {
         pending.value = false;
         if (pendingTimer) clearTimeout(pendingTimer);
         pendingTimer = null;
       }
-      function scrollToActive() {
-        nextTick(() => {
-          const el = document.querySelector('.field.active, .card.active');
-          if (!el || !isMobile()) return;
-          const keypad = document.querySelector('.keypad');
-          const limit = keypad ? keypad.getBoundingClientRect().top : window.innerHeight;
-          const rect = el.getBoundingClientRect();
-          if (rect.bottom > limit - 12 || rect.top < 0) el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
-        });
-      }
+      const scrollToActive = () => UI.revealAboveSheet('.field.active, .card.active');
       function activateField(line, index, part) {
         clearPending();
         active.value = { type: 'field', line, index, part };
@@ -235,7 +194,7 @@
       function setCell(r, c, v) {
         const was = state.revealed[r][c];
         state.revealed[r][c] = v;
-        if (v != null && v >= 2 && was !== v) sparkle(r, c, v);
+        if (v != null && v >= 2 && was !== v) nextTick(() => UI.confettiAt(document.querySelectorAll('.card')[r * 5 + c], { particleCount: v === 3 ? 28 : 14, colors: ['#ffd60a', '#ffb703', '#ffffff'] }));
       }
       // Keypad press (also used by the keyboard handler)
       function press(value) {
@@ -293,7 +252,7 @@
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const target = e.target instanceof Element ? e.target : null;
         const onControl = !!target && !!target.closest('button, summary, a, input, textarea, select');
-        const ownedControl = !!target && !!target.closest('.keypad, .field, .card');
+        const ownedControl = !!target && !!target.closest('.sheet, .field, .card');
         const activation = e.key === 'Enter' || e.key === ' ';
         const a = active.value;
         if (!a) {
@@ -306,12 +265,7 @@
             }
             return;
           }
-          if (stepMode.value) {
-            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); stepNext(); }
-            else if (e.key === 'ArrowLeft') { e.preventDefault(); stepPrev(); }
-            else if (e.key === 'End') { e.preventDefault(); stepLast(); }
-            else if (e.key === 'Home') { e.preventDefault(); stepFirst(); }
-          }
+          stepper.onKey(e);
           return;
         }
         if (activation && onControl && !ownedControl) return; // e.g. "Nouvelle grille" while the keypad is open
@@ -415,26 +369,12 @@
       function fieldClass(line, index, part) {
         const a = active.value;
         const v = lines(line)[index][part];
-        return {
-          empty: v == null,
-          active: !!a && a.type === 'field' && a.line === line && a.index === index && a.part === part,
-          pending: pending.value && !!a && a.type === 'field' && a.line === line && a.index === index && a.part === part,
-          error: errorFields.value.has(`${line}:${index}:${part}`),
-        };
+        const isActive = !!a && a.type === 'field' && a.line === line && a.index === index && a.part === part;
+        return { empty: v == null, active: isActive, pending: pending.value && isActive, error: errorFields.value.has(`${line}:${index}:${part}`) };
       }
       const isActiveCell = (r, c) => !!active.value && active.value.type === 'cell' && active.value.r === r && active.value.c === c;
       function cardClass(cell) {
-        return [
-          cell.kind,
-          {
-            revealed: cell.revealed != null,
-            active: isActiveCell(cell.r, cell.c),
-            recommended: cell.recommended,
-            guess: cell.guess,
-            'in-line': cell.inLine,
-            changed: cell.changed,
-          },
-        ];
+        return [cell.kind, { revealed: cell.revealed != null, active: isActiveCell(cell.r, cell.c), recommended: cell.recommended, guess: cell.guess, 'in-line': cell.inLine, changed: cell.changed }];
       }
       function cardAria(cell) {
         if (cell.revealed != null) return `Carte ${cell.label}, retournée : ${cell.revealed === 0 ? 'Voltorbe' : cell.revealed}`;
@@ -449,42 +389,21 @@
       }
       const pct = (p) => `${Math.round(p * 100)} %`;
       const riskColor = (p) => `hsl(${Math.round(120 * (1 - Math.min(1, p * 1.6)))} 80% 60%)`;
+      const stepIcons = { noVoltLeft: '🛡️', allVolts: '💣', allOnes: '1️⃣', allThrees: '3️⃣', bounds: '📏', mustBeSafe: '🔒', safe: '⚡', guess: '🎲' };
 
-      // ---------------- steps ----------------
-      const STEP_ICONS = {
-        noVoltLeft: '🛡️', allVolts: '💣', allOnes: '1️⃣', allThrees: '3️⃣', bounds: '📏', mustBeSafe: '🔒',
-        enum: '🧮', safe: '⚡', guess: '🎲', done: '🏆', contradiction: '⚠️',
-      };
-      const stepIcon = (s) => STEP_ICONS[s.rule] || '•';
-      function onStepClick(s, i) {
-        if (stepMode.value) stepIndex.value = i;
-        else pinnedStep.value = pinnedStep.value === s ? null : s;
-      }
-      function onStepHover(s) {
-        if (stepMode.value || !window.matchMedia('(hover: hover)').matches) return;
-        hoverStep.value = s;
-      }
-      const stepNext = () => { if (idx.value < lastIndex.value) stepIndex.value = idx.value + 1; };
-      const stepPrev = () => { if (idx.value > 0) stepIndex.value = idx.value - 1; };
-      const stepFirst = () => { stepIndex.value = 0; };
-      const stepLast = () => { stepIndex.value = lastIndex.value; };
       // ---------------- actions ----------------
       function setMode(m) {
         state.mode = m;
-        stepIndex.value = 0;
-        hoverStep.value = null;
-        pinnedStep.value = null;
+        stepper.reset();
       }
       function snapshotForUndo() {
-        undo.value = { rows: JSON.parse(JSON.stringify(state.rows)), cols: JSON.parse(JSON.stringify(state.cols)), revealed: JSON.parse(JSON.stringify(state.revealed)) };
+        undo.value = JSON.parse(JSON.stringify({ rows: state.rows, cols: state.cols, revealed: state.revealed }));
         if (undoTimer) clearTimeout(undoTimer);
         undoTimer = setTimeout(() => { undo.value = null; }, 10000);
       }
       function restoreUndo() {
         if (!undo.value) return;
-        state.rows = undo.value.rows;
-        state.cols = undo.value.cols;
-        state.revealed = undo.value.revealed;
+        Object.assign(state, undo.value);
         undo.value = null;
         close();
       }
@@ -493,12 +412,10 @@
         state.rows = emptyLines();
         state.cols = emptyLines();
         state.revealed = emptyGrid();
-        stepIndex.value = 0;
         activateField('row', 0, 'sum');
       }
       function resetCards() {
         state.revealed = emptyGrid();
-        stepIndex.value = 0;
         close();
       }
       function loadExample() {
@@ -506,58 +423,22 @@
         state.rows = linesFrom(EXAMPLE.rows);
         state.cols = linesFrom(EXAMPLE.cols);
         state.revealed = emptyGrid();
-        stepIndex.value = 0;
         close();
       }
 
       // ---------------- effects ----------------
-      function sparkle(r, c, v) {
-        if (reducedMotion() || typeof confetti !== 'function') return;
-        nextTick(() => {
-          const el = document.querySelectorAll('.card')[r * 5 + c];
-          if (!el) return;
-          const rect = el.getBoundingClientRect();
-          confetti({
-            particleCount: v === 3 ? 28 : 14,
-            spread: 60,
-            startVelocity: 22,
-            gravity: 1.1,
-            ticks: 90,
-            scalar: 0.8,
-            origin: { x: (rect.left + rect.width / 2) / window.innerWidth, y: (rect.top + rect.height / 2) / window.innerHeight },
-            colors: ['#ffd60a', '#ffb703', '#ffffff'],
-            disableForReducedMotion: true,
-          });
-        });
-      }
-      function celebrate() {
-        if (reducedMotion() || typeof confetti !== 'function') return;
-        const colors = ['#ffd60a', '#e8372c', '#ffffff', '#2fbf71'];
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors, disableForReducedMotion: true });
-        setTimeout(() => confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 }, colors }), 250);
-        setTimeout(() => confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 }, colors }), 400);
-      }
       watch(status, (s, old) => {
-        if (s === 'done' && old !== 'done' && old != null) celebrate();
-        // The keypad just closed on the 20th counter: on a phone the verdict sits
-        // below the board, bring it into view without losing the board.
-        if (old === 'incomplete' && (s === 'safe' || s === 'guess' || s === 'done') && isMobile()) {
+        if (s === 'done' && old !== 'done' && old != null) UI.celebrate();
+        // The keypad just closed on the 20th counter: on a phone the verdict sits below the board.
+        if (old === 'incomplete' && (s === 'safe' || s === 'guess' || s === 'done') && UI.isMobile()) {
           nextTick(() => {
             const el = document.querySelector('.advice');
-            if (el) el.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: UI.reducedMotion() ? 'auto' : 'smooth' });
           });
         }
       });
-      // Keep the current step visible in the (desktop, scrollable) step list.
-      watch(idx, () => {
-        if (!stepMode.value || isMobile()) return;
-        nextTick(() => {
-          const el = document.querySelector('.steps li.current');
-          if (el) el.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
-        });
-      });
-      watch(() => [state.rows, state.cols, state.revealed], () => { stepIndex.value = 0; hoverStep.value = null; pinnedStep.value = null; }, { deep: true });
-      watch(state, () => save(state), { deep: true });
+      watch(() => [state.rows, state.cols, state.revealed], () => stepper.reset(), { deep: true });
+      watch(state, () => UI.saveJSON(STORAGE_KEY, { rows: state.rows, cols: state.cols, revealed: state.revealed, mode: state.mode }), { deep: true });
 
       onMounted(() => {
         window.addEventListener('keydown', onKey);
@@ -567,25 +448,23 @@
           loadExample();
           if (hash === '#example') setMode('step');
           history.replaceState(null, '', location.pathname);
-        } else if (filledCount.value === 0 && !isMobile()) activateField('row', 0, 'sum');
+        } else if (filledCount.value === 0 && !UI.isMobile()) activateField('row', 0, 'sum');
       });
-      onUnmounted(() => {
-        window.removeEventListener('keydown', onKey);
-      });
+      onUnmounted(() => window.removeEventListener('keydown', onKey));
 
-      // Small public hook for the browser console (and screenshots): voltorbe.loadExample(), voltorbe.setMode('step')…
-      window.voltorbe = { state, activateField, activateCell, close, press, setMode, loadExample, resetAll, stepNext, stepLast, stepFirst, analysis };
+      // Small public hook for the browser console (and screenshots).
+      window.voltorbe = { state, activateField, activateCell, close, press, setMode, loadExample, resetAll, stepNext: stepper.next, stepLast: stepper.last, stepFirst: stepper.first, analysis };
 
       return {
         COLS: S.COLS,
-        state, active, stepIndex: idx, peek, undo, sparks,
-        filledCount, complete, revealedCount, analysis, status, steps, lastIndex, stepMode, stepLine, cells, advice, showGuesses,
+        state, active, undo, sparks, stepper,
+        filledCount, complete, revealedCount, analysis, status, steps, stepIndex: idx, stepMode, stepLine, cells, advice, showGuesses, stepIcons,
         activeIndex, keypadKind, keypadTitle, keypadHint, keys,
         activateField, activateCell, close, next, prev, press, clearActive,
         colorClass, fieldText, fieldClass, isActiveCell, cardClass, cardAria, pct, riskColor,
-        stepIcon, onStepClick, onStepHover, stepNext, stepPrev, stepFirst, stepLast,
         setMode, resetAll, resetCards, loadExample, restoreUndo,
       };
     },
-  }).mount('#app');
+  });
+  UI.install(app).mount('#app');
 })();

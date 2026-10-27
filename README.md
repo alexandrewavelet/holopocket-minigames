@@ -1,35 +1,41 @@
-# Voltorbe Flip Solver
+# HoloPocket Minigames — solveurs
 
-Solveur pour le mini-jeu **Voltorbe Flip** (HoloPocket / Pokémon HG-SS) : recopie les compteurs de la grille, le solveur te dit quelles cartes retourner sans risque, et quel est le pari le moins risqué quand il n'y en a plus.
+Trois solveurs pour les mini-jeux de [HoloPocket](https://holopocket.app) : recopie la grille, le coffre ou la page du jour, lis le coup parfait, et comprends-le en mode **pas à pas**.
 
-Page statique, aucune dépendance à installer : ouvre `index.html` dans un navigateur (ça marche aussi hors-ligne et sur téléphone).
+**En ligne : https://alexandrewavelet.github.io/holopocket-minigames/**
 
-## Utilisation
+| Mini-jeu | Ce que fait le solveur |
+| --- | --- |
+| **Voltorbe Flip** (`voltorbe-flip/`) | Cartes sûres, risque de Voltorbe en % sur chaque carte, meilleur pari. Règles humaines explicables puis énumération exacte des grilles compatibles. |
+| **Le Coffre** (`coffre/`) | Mastermind à 4 énergies : essai conseillé (minimise le pire cas, façon Knuth), carnet de ce qui est certain, code final avant le 8ᵉ essai. Énergies du jeu configurables. |
+| **Les Voisins** (`voisins/`) | 9 cartes sur une page 3×3, deux voisines partagent un type, une génération ou une lignée. Saisie par autocomplétion du nom (Pokédex embarqué), disposition valide + ordre de pose en 9 coups. |
 
-1. Pour chaque ligne puis chaque colonne, saisis ses **points** et son nombre de **Voltorbe** (le pavé enchaîne automatiquement les 20 compteurs).
-2. Les cartes **⚡ dorées** sont sûres : retourne-les dans le jeu. Sinon le **🎲** indique le pari le moins risqué, avec son pourcentage.
-3. Après chaque carte retournée, touche-la dans le solveur et saisis sa valeur : l'analyse se met à jour.
-4. Le mode **Pas à pas** déroule le raisonnement règle par règle (ligne sans Voltorbe, ligne de 1, bornes sur les valeurs, cartes indispensables à la somme…) puis l'énumération exacte des grilles compatibles.
-
-Raccourcis clavier : chiffres pour saisir, `Tab`/`→` suivant, `←` précédent, `⌫` effacer, `Échap` fermer ; sur une carte `1` `2` `3` ou `V`. En mode pas à pas, `←`/`→`/`Espace` pour naviguer.
-
-`index.html#exemple` charge la grille d'exemple ; `index.html#example` la charge en mode pas à pas.
+Pages statiques, aucune dépendance à installer : ouvre `index.html` dans un navigateur (ça marche hors-ligne et sur téléphone). Sur chaque solveur, `#exemple` charge un exemple ; `#example` le charge en mode pas à pas.
 
 ## Structure
 
 ```
-index.html        page (template Vue in-DOM)
-css/style.css     thème électrique, animations
-js/solver.js      logique pure : règles de déduction + énumération exacte (DP sur les colonnes)
-js/app.js         app Vue : saisie, pavé, pas à pas, persistance localStorage
-vendor/           Vue 3 et canvas-confetti vendorisés (pas de build, pas de réseau)
-test/             tests du solveur (node --test)
+index.html, home.css, home.js   page d'accueil
+shared/css/base.css             tokens, bulle d'explication, liste d'étapes, bottom sheets, animations
+shared/js/ui.js                 helpers (persistance, confetti) + composants Vue partagés + useStepper
+voltorbe-flip/ coffre/ voisins/ un dossier par jeu : index.html, app.js (Vue), solver.js (logique pure), style.css
+data/pokedex.js                 Pokédex FR (types, génération, lignée) généré par scripts/build-pokedex.js
+vendor/                         Vue 3 et canvas-confetti vendorisés (pas de build, pas de réseau)
+test/                           tests des trois solveurs (node --test)
 ```
 
-## Tests
+Chaque `solver.js` est sans DOM, exposé en global dans le navigateur et en CommonJS pour les tests. Chaque solveur produit une liste d'« étapes » (titre, explication, cellules/lignes concernées) que l'UI rejoue en mode pas à pas.
+
+## Développement
 
 ```
-npm test        # ou : node --test test/
+npm test                         # node --test test/
+node scripts/build-pokedex.js    # régénère data/pokedex.js depuis les CSV PokéAPI
+python3 -m http.server 8080      # optionnel, pour servir le dossier
 ```
 
-Les tests couvrent les règles de déduction, l'énumération (invariants sur des grilles aléatoires : la vraie grille est toujours possible, les marginales respectent les totaux) et la cohérence règles ↔ énumération (une règle n'élimine jamais une valeur qu'une grille compatible utilise).
+Les tests couvrent les règles de déduction, l'énumération (invariants sur des grilles aléatoires : la vraie grille est toujours possible, les marginales respectent les totaux, aucune règle n'élimine une valeur réellement possible), le scoring Mastermind avec répétitions, les recommandations, et la validité des dispositions trouvées pour Les Voisins.
+
+Déploiement : push sur `main` → GitHub Pages (racine du dépôt). L'ancienne adresse `voltorbe-flip-solver` redirige vers `holopocket-minigames/voltorbe-flip/`.
+
+Projet perso, non affilié à HoloPocket ni à The Pokémon Company. Données Pokédex : [PokéAPI](https://pokeapi.co).

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const S = require('../js/solver.js');
+const S = require('../voltorbe-flip/solver.js');
 
 // ---------- helpers ----------
 const NULLS = () => [null, null, null, null, null];
