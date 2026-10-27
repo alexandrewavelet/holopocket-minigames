@@ -136,9 +136,9 @@ test('analyze: a leftover quartet with nothing in common is accepted as the "Dan
   assert.equal(a.solutions[0].guessed, true);
 });
 
-test('analyze: a category is never used twice in a grid', () => {
+test('analyze: the same value never labels two groups of a grid', () => {
   const mons = synthetic();
-  // 8-15 all start with K: of the 35 ways to split them into two quartets, only one gives the two groups different categories
+  // 8-15 all start with K: of the 35 ways to split them into two quartets, only one gives the two groups different labels
   for (const i of [8, 9, 10, 11]) mons[i].name = 'K' + mons[i].name;
   const a = S.analyze(mons);
   assert.equal(a.status, 'solved');
@@ -161,7 +161,7 @@ test('analyze: "collection" guesses are only offered when no fully explained sol
   assert.equal(partition(a.solutions[0]), '0,1,2,3 | 12,13,14,15 | 4,5,6,7 | 8,9,10,11');
 });
 
-test('analyze: a group is labelled with a category no other group uses, even if a more specific one is shared', () => {
+test('analyze: a group is labelled with a value no other group uses, even if a more specific one is shared', () => {
   const mons = synthetic();
   // 0-3: generation 1 and first letter Y (types all different); 4-7: generation 1 only; 12-15 become the Dragon group
   for (const i of [0, 1, 2, 3]) mons[i] = mon('Y' + mons[i].name, [['Feu', 'Eau', 'Plante', 'Psy'][i]], 1, mons[i].lineage, i);
@@ -176,7 +176,7 @@ test('analyze: a group is labelled with a category no other group uses, even if 
   assert.equal(a.solutions[0].groups.find((x) => members(x) === '4,5,6,7').reasons[0].label, 'Génération 1');
 });
 
-test('analyze: a group becomes "plus rare" when only a rare category is left for it', () => {
+test('analyze: a group becomes "plus rare" when only a rare value is left for it', () => {
   const mons = synthetic();
   // 0-3: type Feu and a special card; 4-7: type Feu too, nothing else → the first group must be the card group
   for (const i of [0, 1, 2, 3]) mons[i].special = true;
@@ -197,6 +197,17 @@ test('analyze: a group becomes "plus rare" when only a rare category is left for
   assert.equal(a.status, 'impossible');
 });
 
+test('analyze: two values of one category may coexist (generation 5 and generation 7)', () => {
+  const mons = synthetic();
+  for (const i of [12, 13, 14, 15]) mons[i] = mon(['Qmmmmmm', 'Rnnnnnn', 'Soooooo', 'Tpppppp'][i - 12], mons[i].types, 7, mons[i].lineage, null);
+  const a = S.analyze(mons);
+  assert.equal(a.status, 'solved');
+  assert.equal(a.count, 1);
+  assert.equal(a.solutions[0].guessed, false);
+  const labels = a.solutions[0].groups.map((g) => g.reasons[0].label).sort();
+  assert.deepEqual(labels, ['Famille de Zed', 'Génération 5', 'Génération 7', 'Type Feu']);
+});
+
 test('analyze: a quartet whose only shared value is already used by another group can be the "collection" group', () => {
   const mons = synthetic();
   // 12-15 now share type Feu like 0-3, and nothing else: two "type" groups are impossible, one Feu quartet must be the collection
@@ -205,7 +216,7 @@ test('analyze: a quartet whose only shared value is already used by another grou
   assert.equal(a.status, 'solved');
   assert.equal(a.count, 35); // any four of the eight Feu could be the collection, the other four the Feu group
   assert.equal(a.solutions.every((s) => s.guessed), true);
-  for (const s of a.solutions) assert.equal(new Set(s.groups.map((g) => g.reasons[0].category)).size, 4);
+  for (const s of a.solutions) assert.equal(new Set(s.groups.map((g) => g.reasons[0].label)).size, 4);
   assert.equal(partition(a.solutions[0]), '0,1,2,3 | 12,13,14,15 | 4,5,6,7 | 8,9,10,11');
   const cats = a.solutions[0].groups.map((g) => g.reasons[0].category).sort();
   assert.deepEqual(cats, ['collection', 'family', 'gen', 'type']);
@@ -254,7 +265,7 @@ test('analyze: enumeration is capped when everything shares an attribute', () =>
 });
 
 // ---------- the screenshot grid, against the real Pokédex ----------
-test('screenshot grid: every name resolves; family / dragon / gen 6 / gen 9 is the first answer, one generation guessed as the collection', () => {
+test('screenshot grid: every name resolves and the family / dragon / gen 9 / gen 6 partition is the first solution', () => {
   const dex = loadPokedex();
   const names = ['Papinox', 'Strassie', 'Fort-Ivoire', 'Carchacrok', 'Oyacata', 'Iguolta', 'Léboulérou', 'Chenipotte', 'Armulys', 'Sepiatroce', 'Taupikeau', 'Tranchodon', 'Blindalys', 'Latios', 'Grelaçon', 'Altaria'];
   const mons = names.map((n) => {
@@ -269,11 +280,13 @@ test('screenshot grid: every name resolves; family / dragon / gen 6 / gen 9 is t
   const byMembers = Object.fromEntries(first.groups.map((g) => [members(g), g.reasons[0]]));
   assert.equal(byMembers['0,7,8,12'].label, 'Famille de Chenipotte');
   assert.equal(byMembers['3,11,13,15'].label, 'Type Dragon');
-  // two generation groups cannot both be explained: one of them must be "Dans ta collection"
-  assert.equal(first.guessed, true);
-  assert.deepEqual([byMembers['1,5,9,14'], byMembers['2,4,6,10']].map((r) => r.category).sort(), ['collection', 'gen']);
-  // never two groups of the same category, in any solution
-  for (const s of a.solutions) assert.equal(new Set(s.groups.map((g) => g.reasons[0].category)).size, 4);
+  // two generation groups are fine: different values of one category
+  assert.equal(first.guessed, false);
+  assert.equal(byMembers['1,5,9,14'].label, 'Génération 6');
+  assert.equal(byMembers['2,4,6,10'].label, 'Génération 9');
+  assert.equal(a.count, 3);
+  // never two groups with the same label, in any solution
+  for (const s of a.solutions) assert.equal(new Set(s.groups.map((g) => g.reasons[0].label)).size, 4);
 });
 
 test('fromPokedex maps a Pokédex entry to a solver entry', () => {

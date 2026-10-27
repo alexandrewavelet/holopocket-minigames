@@ -98,13 +98,13 @@
             const lone = a.isolated.map((i) => entryLabel(i));
             const text = lone.length
               ? `${lone.join(', ')} ne partage${lone.length > 1 ? 'nt' : ''} aucun point commun avec trois autres Pokémon de la grille. Vérifie ${lone.length > 1 ? 'leurs noms' : 'son nom'} (forme régionale ?) ou ajuste à la main.`
-              : 'Des groupes existent, mais aucune façon de couvrir les 16 Pokémon avec quatre groupes de catégories différentes (au plus un « plus rare »). Vérifie les noms et les formes régionales.';
+              : 'Des groupes existent, mais aucune façon de couvrir les 16 Pokémon avec quatre groupes aux points communs différents (au plus un « plus rare »). Vérifie les noms et les formes régionales.';
             return { title: 'Aucune grille ne tient', text, tone: 'error', key: 'impossible' };
           }
           default: {
             const s = solution.value;
             const sureCount = s.groups.filter((g) => g.sure).length;
-            if (a.count === 1) return { title: s.guessed ? 'Quatre groupes, dont un deviné' : 'Les quatre groupes !', text: s.guessed ? 'Trois groupes ont un point commun clair ; les quatre Pokémon restants n\'ont aucun point commun utilisable (une catégorie ne sert qu\'une fois par grille), ce doit être « Dans ta collection ». Valide les trois premiers d\'abord.' : 'Valide-les dans l\'ordre ci-dessous : une ligne de couleur par groupe sur la grille.', tone: 'solved', key: 'solved-1' };
+            if (a.count === 1) return { title: s.guessed ? 'Quatre groupes, dont un deviné' : 'Les quatre groupes !', text: s.guessed ? 'Trois groupes ont un point commun clair ; les quatre Pokémon restants n\'ont aucun point commun utilisable (un même point commun ne sert qu\'une fois par grille), ce doit être « Dans ta collection ». Valide les trois premiers d\'abord.' : 'Valide-les dans l\'ordre ci-dessous : une ligne de couleur par groupe sur la grille.', tone: 'solved', key: 'solved-1' };
             return {
               title: `${a.truncated ? a.count + '+' : a.count} façons de grouper`,
               text: sureCount ? `${sureCount === 4 ? 'Les quatre groupes' : sureCount === 1 ? 'Une ligne est' : sureCount + ' lignes sont'} marquée${sureCount > 1 ? 's' : ''} « sûr » : ${sureCount > 1 ? 'elles sont' : 'elle est'} dans toutes les solutions, valide-${sureCount > 1 ? 'les' : 'la'} d'abord. Pour le reste, essaie cette solution, puis « Autre solution » si le jeu la refuse (4 erreurs max).` : 'Aucun groupe n\'est commun à toutes les solutions. Essaie celle-ci (la plus spécifique), puis « Autre solution » si le jeu la refuse.',

@@ -2,8 +2,8 @@
  * Connexions solver — pure logic, no DOM.
  * Sixteen Pokémon, four groups of four sharing a category value (type,
  * generation, place in the family, evolution family, first letter, name length,
- * or one of the rarer card-based categories). A category is never used twice in
- * a grid (no two "generation" groups), and at most one group is rare. Exposed as
+ * or one of the rarer card-based categories). A value never labels two groups of
+ * one grid (no two "generation 6" groups), and at most one group is rare. Exposed as
  * `ConnexionsSolver` in the browser and as a CommonJS module for tests.
  *
  * entry = { name, form, types: string[], gen: number|null, lineage: string|null,
@@ -106,7 +106,7 @@
 
   const COLLECTION = { category: 'collection', value: 'collection', label: 'Dans ta collection (probablement)' };
 
-  // One category per group, all different, at most `maxRare` of them rare: the most specific such
+  // One value per group, all different, at most `maxRare` of them rare: the most specific such
   // choice (one reason per group), or null when the groups cannot be told apart that way.
   function assign(gs, maxRare) {
     let best = null;
@@ -115,10 +115,8 @@
         if (!best || rare < best.rare || (rare === best.rare && cost < best.cost)) best = { reasons: picked.slice(), rare, cost };
         return;
       }
-      const seen = new Set();
       for (const r of gs[i].reasons) {
-        if (seen.has(r.category) || picked.some((p) => p.category === r.category)) continue;
-        seen.add(r.category);
+        if (picked.some((p) => p.category === r.category && p.value === r.value)) continue;
         const rr = rare + (RARE.has(r.category) ? 1 : 0);
         if (rr > maxRare) continue;
         picked.push(r);
@@ -129,7 +127,7 @@
     return best;
   }
 
-  // a solution: each group labelled with its assigned category first, whatever else it shares after
+  // a solution: each group labelled with its assigned value first, whatever else it shares after
   function solution(gs, assigned, guessed) {
     return {
       guessed,
@@ -142,10 +140,10 @@
     };
   }
 
-  // Exact covers of the 16 by 4 disjoint groups, each labelled with a different category, at most one
+  // Exact covers of the 16 by 4 disjoint groups, each labelled with a different value, at most one
   // rare. With `guessing`, three labelled groups plus one quartet "deferred" to the uncomputable
   // "Dans ta collection" (rare, so the three others must be ordinary) — whatever that quartet shares:
-  // nothing at all, or only a value whose category another group already uses.
+  // nothing at all, or only a value another group already uses.
   function enumerate(entries, allGroups, limit, guessing) {
     const n = entries.length;
     const byMember = Array.from({ length: n }, () => []);
@@ -179,7 +177,7 @@
         for (const g of byMember[pivot]) {
           if (g.members.some((m) => used[m])) continue;
           chosen.push(g);
-          if (assign(chosen, maxRare)) { // prune partial covers that already repeat a category
+          if (assign(chosen, maxRare)) { // prune partial covers that already repeat a value
             for (const m of g.members) used[m] = true;
             rec();
             for (const m of g.members) used[m] = false;
